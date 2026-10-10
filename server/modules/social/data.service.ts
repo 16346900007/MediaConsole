@@ -27,6 +27,7 @@ import { PLATFORM_MAP } from '@shared/platforms';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  followerCountByPlatform,
   PLATFORM_FETCHERS,
   type FetchContext,
   type SocialPostInput,
@@ -208,10 +209,21 @@ export class DataService {
       try {
         const posts = await this.fetchPostsFor(acct);
         await this.upsertPosts(acct, posts);
-        await this.db
-          .update(socialAccounts)
-          .set({ lastDataSyncedAt: new Date() })
-          .where(eq(socialAccounts.id, acct.id));
+        const fc = followerCountByPlatform[acct.platform as string];
+        if (typeof fc === 'number' && fc > 0) {
+          await this.db
+            .update(socialAccounts)
+            .set({ followersCount: fc, lastDataSyncedAt: new Date() })
+            .where(eq(socialAccounts.id, acct.id));
+          this.logger.log(
+            `[data-sync] ${acct.platform}/${acct.accountName} 粉丝数回写 ${fc}`,
+          );
+        } else {
+          await this.db
+            .update(socialAccounts)
+            .set({ lastDataSyncedAt: new Date() })
+            .where(eq(socialAccounts.id, acct.id));
+        }
         this.logger.log(
           `[data-sync] ${acct.platform}/${acct.accountName} 同步 ${posts.length} 条作品`,
         );
@@ -330,6 +342,7 @@ export class DataService {
       favorites: row.favorites,
       watchRate: row.watchRate === null ? null : Number(row.watchRate),
       followersDelta: row.followersDelta,
+      raw: row.raw as Record<string, unknown> | null,
       publishedAt: row.publishedAt ? row.publishedAt.toISOString() : null,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),

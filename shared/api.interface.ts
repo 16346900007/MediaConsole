@@ -284,6 +284,8 @@ export interface SocialPost {
   watchRate: number | null;
   /** 涨粉量 */
   followersDelta: number;
+  /** 平台原始数据（平台特有列展示用） */
+  raw?: Record<string, unknown> | null;
   publishedAt: string | null;
   createdAt: string;
   updatedAt: string;

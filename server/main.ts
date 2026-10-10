@@ -78,6 +78,7 @@ async function bootstrap() {
     'kuaishou.com', // 快手
     'kwimgs.com',
     'qlogo.cn', // 视频号/微信头像（wx.qlogo.cn/finderhead）
+    'video.qq.com', // 视频号作品封面（finder.video.qq.com）
   ];
   const avatarRefererFor = (hostname: string): string => {
     if (hostname.includes('hdslb.com')) return 'https://www.bilibili.com/';
@@ -90,7 +91,7 @@ async function bootstrap() {
       return 'https://www.xiaohongshu.com/';
     if (hostname.includes('kuaishou.com') || hostname.includes('kwimgs.com'))
       return 'https://cp.kuaishou.com/';
-    if (hostname.includes('qlogo.cn'))
+    if (hostname.includes('qlogo.cn') || hostname.includes('video.qq.com'))
       return 'https://channels.weixin.qq.com/';
     return '';
   };

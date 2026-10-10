@@ -14,17 +14,27 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { formatCount, resolveErrorMessage } from './helpers';
 
-/** 平台特有列（快手有完播率/涨粉，其余平台先通用，后续适配各自特有指标） */
+/** 平台特有列：通用 6 指标之上，各平台追加其特有指标（数据来自 post.raw） */
 type ColumnKey =
   | 'playRate'
   | 'followersDelta'
   | 'views'
   | 'comments'
   | 'likes'
-  | 'favorites';
+  | 'favorites'
+  | 'shares'
+  | 'coins'
+  | 'danmaku'
+  | 'forwards';
 
 const EXTRA_COLUMNS: Partial<Record<SocialPlatform, ColumnKey[]>> = {
   kuaishou: ['views', 'playRate', 'comments', 'likes', 'favorites', 'followersDelta'],
+  douyin: ['views', 'likes', 'comments', 'favorites', 'shares'],
+  xiaohongshu: ['views', 'likes', 'comments', 'favorites', 'shares'],
+  bilibili: ['views', 'likes', 'comments', 'favorites', 'coins', 'danmaku', 'forwards'],
+  shipinhao: ['views', 'likes', 'comments', 'favorites', 'forwards'],
+  weibo: ['views', 'likes', 'comments', 'forwards'],
+  youtube: ['views', 'likes', 'comments'],
 };
 
 const COLUMN_LABELS: Record<ColumnKey, string> = {
@@ -34,11 +44,25 @@ const COLUMN_LABELS: Record<ColumnKey, string> = {
   comments: '评论量',
   likes: '点赞量',
   favorites: '收藏量',
+  shares: '分享量',
+  coins: '投币量',
+  danmaku: '弹幕量',
+  forwards: '转发量',
 };
 
 const DEFAULT_COLUMNS: ColumnKey[] = ['views', 'likes', 'comments', 'favorites'];
 
-function renderCell(key: ColumnKey, post: SocialPost): string {
+/** 从平台 raw 中读取特有指标数值 */
+function rawCount(post: SocialPost, path: string[]): number {
+  let node: unknown = post.raw;
+  for (const key of path) {
+    if (node === null || node === undefined) return 0;
+    node = (node as Record<string, unknown>)[key];
+  }
+  return typeof node === 'number' ? node : Number(node ?? 0) || 0;
+}
+
+function renderCell(key: ColumnKey, post: SocialPost, platform: SocialPlatform): string {
   switch (key) {
     case 'playRate':
       return post.watchRate === null || post.watchRate === undefined
@@ -54,6 +78,28 @@ function renderCell(key: ColumnKey, post: SocialPost): string {
       return formatCount(post.likes);
     case 'favorites':
       return formatCount(post.favorites);
+    case 'shares':
+      return formatCount(
+        platform === 'douyin'
+          ? rawCount(post, ['statistics', 'share_count'])
+          : platform === 'xiaohongshu'
+            ? rawCount(post, ['shared_count'])
+            : 0,
+      );
+    case 'coins':
+      return formatCount(rawCount(post, ['stat', 'coin']));
+    case 'danmaku':
+      return formatCount(rawCount(post, ['stat', 'danmaku']));
+    case 'forwards':
+      return formatCount(
+        platform === 'bilibili'
+          ? rawCount(post, ['stat', 'share'])
+          : platform === 'shipinhao'
+            ? rawCount(post, ['forwardCount'])
+            : platform === 'weibo'
+              ? rawCount(post, ['reposts_count'])
+              : 0,
+      );
     default:
       return '-';
   }
@@ -301,7 +347,7 @@ const AccountPosts: React.FC = () => {
                             key === 'views' && 'font-bold',
                           )}
                         >
-                          {renderCell(key, post)}
+                          {renderCell(key, post, account.platform)}
                         </span>
                       </td>
                     ))}
