@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   BarChart3,
@@ -44,9 +44,21 @@ const Layout = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [cacheMB, setCacheMB] = useState<number | null>(null);
   const [clearing, setClearing] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const current = matchNavItem(location.pathname);
   const CurrentIcon = current.icon;
+
+  // 点击菜单以外的任意位置关闭菜单
+  useEffect(() => {
+    const handleDocClick = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleDocClick);
+    return () => document.removeEventListener('mousedown', handleDocClick);
+  }, []);
 
   const refreshCacheInfo = async () => {
     try {
@@ -61,6 +73,7 @@ const Layout = () => {
     setClearing(true);
     try {
       const result = await clearAppCache();
+      setMenuOpen(false);
       toast.success(`已清理 ${result.clearedMB} MB 缓存`, {
         description:
           result.failedItems > 0
@@ -155,18 +168,19 @@ const Layout = () => {
           <h1 className="text-base font-semibold text-[#1A1A1A]">
             {current.label}
           </h1>
-          <div
-            className="relative ml-auto"
-            onMouseEnter={() => {
-              setMenuOpen(true);
-              void refreshCacheInfo();
-            }}
-            onMouseLeave={() => setMenuOpen(false)}
-          >
+          <div ref={menuRef} className="relative ml-auto">
             <button
               type="button"
               aria-label="应用菜单"
-              className="flex h-9 w-9 items-center justify-center rounded-md text-[#475569] transition-colors hover:bg-slate-100"
+              onClick={() => {
+                setMenuOpen((prev) => {
+                  if (!prev) void refreshCacheInfo();
+                  return !prev;
+                });
+              }}
+              className={`flex h-9 w-9 items-center justify-center rounded-md transition-colors hover:bg-slate-100 ${
+                menuOpen ? 'bg-slate-100 text-[#0033A0]' : 'text-[#475569]'
+              }`}
             >
               <MoreVertical className="h-4 w-4" />
             </button>
