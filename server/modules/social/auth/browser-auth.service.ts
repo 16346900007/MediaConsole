@@ -14,6 +14,7 @@ import {
   authDir,
   extractPageUserInfo,
   extractStoredUserInfo,
+  extractYoutubeFromPage,
 } from './auth-util';
 
 /**
@@ -196,6 +197,16 @@ export class BrowserAuthService {
             .join(',')}]`,
         );
       }
+      // YouTube 诊断：Google 登录流程会经 accounts.google.com → www.youtube.com/signin
+      // → studio.youtube.com，登录后 URL 可能含 signin 被 isLoginPage 误判，打印关键状态
+      if (s.platform === 'youtube') {
+        console.log(
+          `[browser-auth] youtube poll url=${url} isLoginPage=${isLoginPage} hasSession=${hasSession} sessionCookies=[${sessionCookies
+            .filter((c) => /SID|SSID|SAPISID|HSID|APISID/i.test(c.name))
+            .map((c) => `${c.name}@${c.domain}`)
+            .join(',')}]`,
+        );
+      }
       // 视频号：点击"微信快捷登录"后按钮消失（进入创作中心但 URL 未变）视为已登录
       let quickLoginConfirmed = false;
       if (s.platform === 'shipinhao') {
@@ -239,6 +250,16 @@ export class BrowserAuthService {
         const platform = s.platform;
         // 用户信息：localStorage 提取（昵称/头像/ID），失败回退页面 DOM 抓取
         const info = await extractStoredUserInfo(state, platform);
+        // YouTube：studio 无 localStorage 用户信息，从 ytcfg 拿 CHANNEL_ID 后
+        // 跳转频道页取频道名/头像（node 直连会被 Google CookieMismatch 拦截，必须页面内提取）
+        if (platform === 'youtube') {
+          const yt = await extractYoutubeFromPage(s.page).catch(() => ({}));
+          if (yt.userId || yt.userName) {
+            info.userId = yt.userId || info.userId;
+            info.userName = yt.userName || info.userName;
+            info.userAvatar = yt.userAvatar || info.userAvatar;
+          }
+        }
         const pageInfo = await extractPageUserInfo(s.page, platform).catch(
           () => ({}),
         );

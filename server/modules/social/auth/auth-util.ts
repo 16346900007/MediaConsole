@@ -261,7 +261,7 @@ export async function extractPageUserInfo(
   // 2. 页面 title 兜底（排除平台通用页面名）
   try {
     const title = (await page.title().catch(() => '')) ?? '';
-    const banned = ['登录', '创作者中心', '创作服务平台', '创作中心'];
+    const banned = ['登录', '创作者中心', '创作服务平台', '创作中心', '频道信息中心', 'YouTube'];
     if (title && !banned.some((w) => title.includes(w))) {
       const t = title.trim();
       if (t.length >= 1 && t.length <= 30) return { userName: t, userAvatar: avatar };
@@ -452,4 +452,50 @@ async function pickPageAvatar(
     }
   }
   return undefined;
+}
+
+/**
+ * YouTube 官方信息提取：studio.youtube.com 登录态无 localStorage 用户信息（实测 0 origins），
+ * 且 node fetch 直连被 Google CookieMismatch 拦截——只能在浏览器上下文内提取：
+ * 1. 从 studio 页面 ytcfg 拿 CHANNEL_ID（稳定唯一，作为平台用户 ID）；
+ * 2. 跳转频道页取 og:title（频道名）/ og:image（头像）。
+ * 失败返回空由调用方回退 title 兜底。
+ */
+export async function extractYoutubeFromPage(page: any): Promise<{
+  userId?: string;
+  userName?: string;
+  userAvatar?: string;
+}> {
+  try {
+    const channelId = await page
+      .evaluate(() => {
+        const cfg = (window as any)?.ytcfg?.data_ || (window as any)?.ytcfg || {};
+        return cfg.CHANNEL_ID || null;
+      })
+      .catch(() => null);
+    if (!channelId) return {};
+    await page
+      .goto(`https://www.youtube.com/channel/${channelId}`, {
+        waitUntil: 'domcontentloaded',
+        timeout: 30000,
+      })
+      .catch(() => {});
+    await page.waitForTimeout(3000);
+    const info = await page
+      .evaluate(() => ({
+        name:
+          document.querySelector('meta[property="og:title"]')?.content ?? null,
+        avatar:
+          document.querySelector('meta[property="og:image"]')?.content ?? null,
+      }))
+      .catch(() => null);
+    return {
+      userId: channelId,
+      userName: info?.name || undefined,
+      userAvatar: info?.avatar || undefined,
+    };
+  } catch {
+    /* 忽略，调用方回退 */
+  }
+  return {};
 }
