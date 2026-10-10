@@ -36,7 +36,8 @@ export class AppController {
 
   private cacheDirs(): string[] {
     const base = this.cacheProfileDir();
-    return this.CACHE_DIRS.filter((name) => existsSync(join(base, name)));
+    // 必须 map 出完整路径再过滤：filter 直接返回目录名会导致后续按 cwd 解析（ENOENT）
+    return this.CACHE_DIRS.map((name) => join(base, name)).filter((p) => existsSync(p));
   }
 
   private dirSize(dir: string): number {
