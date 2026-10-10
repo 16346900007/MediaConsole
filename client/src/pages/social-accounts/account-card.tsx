@@ -79,6 +79,12 @@ const AccountCard: FC<AccountCardProps> = ({
 }) => {
   const platform = PLATFORM_MAP[account.platform];
   const avatar = account.avatar;
+  // 各平台头像 CDN 有 Referer 防盗链（hdslb/sinaimg 拒绝 127.0.0.1 引用），
+  // 外部头像统一走后端代理（按域名带正确 Referer 拉取），本地/相对地址原样使用
+  const avatarSrc =
+    avatar && /^https:\/\//.test(avatar)
+      ? `/avatar-proxy?url=${encodeURIComponent(avatar)}`
+      : avatar;
   // 头像加载失败时回退平台 logo（避免显示难看的 alt 文本裁剪）
   const [avatarError, setAvatarError] = useState(false);
   useEffect(() => {
@@ -107,10 +113,11 @@ const AccountCard: FC<AccountCardProps> = ({
       <div className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#F8FAFC] ring-1 ring-[#E2E8F0]">
         {avatar && !avatarError ? (
           <Image
-            src={avatar}
+            src={avatarSrc}
             alt={account.accountName}
             loading="eager"
             decoding="sync"
+            referrerPolicy="no-referrer"
             className="size-14 object-cover"
             onError={() => setAvatarError(true)}
           />

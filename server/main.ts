@@ -63,6 +63,73 @@ async function bootstrap() {
     next();
   });
 
+  // 头像代理：各平台头像 CDN 有 Referer 防盗链（hdslb 拒非B站引用、sinaimg 仅收
+  // weibo.com 引用），webview 页面来源 127.0.0.1 直接引用会被 403。此路由注册在
+  // configureApp 之前且不带 /api 前缀，绕开其 CSRF 校验（img 标签无法携带
+  // x-suda-csrf-token 头）；按域名带对应平台 Referer 拉取，域名白名单防 SSRF。
+  const AVATAR_ALLOWED_HOSTS = [
+    'hdslb.com', // B站
+    'sinaimg.cn', // 微博
+    'googleusercontent.com', // YouTube（yt3）
+    'douyinpic.com', // 抖音
+    'douyin.com',
+    'xiaohongshu.com', // 小红书
+    'xhscdn.com',
+    'kuaishou.com', // 快手
+    'kwimgs.com',
+  ];
+  const avatarRefererFor = (hostname: string): string => {
+    if (hostname.includes('hdslb.com')) return 'https://www.bilibili.com/';
+    if (hostname.includes('sinaimg.cn')) return 'https://weibo.com/';
+    if (hostname.includes('googleusercontent.com'))
+      return 'https://www.youtube.com/';
+    if (hostname.includes('douyinpic.com') || hostname.includes('douyin.com'))
+      return 'https://www.douyin.com/';
+    if (hostname.includes('xiaohongshu.com') || hostname.includes('xhscdn.com'))
+      return 'https://www.xiaohongshu.com/';
+    if (hostname.includes('kuaishou.com') || hostname.includes('kwimgs.com'))
+      return 'https://cp.kuaishou.com/';
+    return '';
+  };
+  app.use('/avatar-proxy', async (req: any, res: any, next: any) => {
+    const url = req.query.url as string;
+    if (!url || !/^https:\/\//.test(url)) {
+      res.status(400).send('bad url');
+      return;
+    }
+    let hostname = '';
+    try {
+      hostname = new URL(url).hostname;
+    } catch {
+      res.status(400).send('bad url');
+      return;
+    }
+    if (!AVATAR_ALLOWED_HOSTS.some((h) => hostname.includes(h))) {
+      res.status(403).send('host not allowed');
+      return;
+    }
+    try {
+      const referer = avatarRefererFor(hostname);
+      const headers: Record<string, string> = {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      };
+      if (referer) headers.Referer = referer;
+      const r = await fetch(url, {
+        headers,
+        redirect: 'follow',
+        signal: AbortSignal.timeout(10000),
+      });
+      const buf = Buffer.from(await r.arrayBuffer());
+      res.set('Content-Type', r.headers.get('content-type') || 'image/jpeg');
+      res.set('Cache-Control', 'public, max-age=86400');
+      res.set('X-Content-Type-Options', 'nosniff');
+      res.send(buf);
+    } catch {
+      res.status(502).send('proxy failed');
+    }
+  });
+
   await configureApp(app, { 
     disableSwagger: true,
   });
