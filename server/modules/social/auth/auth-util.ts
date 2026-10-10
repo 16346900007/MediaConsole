@@ -105,6 +105,25 @@ export async function extractStoredUserInfo(
     const wb = await extractWeiboFromApi(state);
     if (wb.userName || wb.userId) return wb;
   }
+  // 抖音：uid_tt 是匿名设备 UUID（每次登录会变），必须走官方接口拿真实 uid
+  // （www.douyin.com self 接口返回 user.uid/nickname/avatar，cookie 带 sessionid 即可）
+  if (platform === 'douyin') {
+    const dy = await extractDouyinFromApi(state);
+    if (dy.userId) return dy;
+  }
+  // 视频号：finder_username 是视频号唯一 ID（同一微信可开多个视频号，cookie wxuin
+  // 仅能区分微信账号），优先 localStorage 提取；wxuin 由下方 cookie 兜底
+  if (platform === 'shipinhao') {
+    for (const origin of state?.origins ?? []) {
+      const hit = (origin.localStorage ?? []).find(
+        (e: { name: string; value: string }) => e.name === 'finder_username',
+      );
+      if (hit?.value) {
+        const uid = String(hit.value).replace(/@finder$/, '');
+        if (uid) return { userId: uid };
+      }
+    }
+  }
   let info: { userId?: string; userName?: string; userAvatar?: string } = {};
   try {
     const knownKeys = PLATFORM_USER_KEYS[platform] ?? [];
@@ -145,6 +164,8 @@ export async function extractStoredUserInfo(
       douyin: ['uid_tt'],
       bilibili: ['DedeUserID'],
       weibo: ['uid'],
+      // 视频号（微信生态）localStorage 无用户信息，wxuin 是稳定微信用户 ID
+      shipinhao: ['wxuin'],
     };
     const keys = uidCookieKeys[platform] ?? [];
     for (const c of state?.cookies ?? []) {
@@ -155,6 +176,53 @@ export async function extractStoredUserInfo(
     }
   }
   return info;
+}
+
+/**
+ * 抖音官方接口提取：创作者中心/主页不渲染稳定用户 ID（localStorage 无用户信息，
+ * cookie 的 uid_tt 是匿名设备 UUID 每次登录会变），直接调 www.douyin.com self 接口。
+ * 需要 sessionid 登录 cookie；失败返回空由调用方回退现有 localStorage/cookie 逻辑。
+ */
+async function extractDouyinFromApi(state: any): Promise<{
+  userId?: string;
+  userName?: string;
+  userAvatar?: string;
+}> {
+  try {
+    const cookies = state?.cookies ?? [];
+    const cookieStr = cookies
+      .map((c: { name: string; value: string }) => `${c.name}=${c.value}`)
+      .join('; ');
+    if (!cookieStr.includes('sessionid')) return {};
+    const res = await fetch(
+      'https://www.douyin.com/aweme/v1/web/user/profile/self/?aid=6383&channel=channel_pc_web&mute=1&show_name=1',
+      {
+        headers: {
+          Cookie: cookieStr,
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          Referer: 'https://www.douyin.com/',
+        },
+        signal: AbortSignal.timeout(8000),
+      },
+    );
+    const json = await res.json().catch(() => null);
+    const u = json?.user;
+    if (json?.status_code === 0 && u?.uid != null) {
+      const avatar =
+        u.avatar_168x168?.url_list?.[0] ||
+        u.avatar_300x300?.url_list?.[0] ||
+        u.avatar_larger?.url_list?.[0];
+      return {
+        userId: String(u.uid),
+        userName: u.nickname || undefined,
+        userAvatar: avatar || undefined,
+      };
+    }
+  } catch {
+    /* 忽略，调用方回退 */
+  }
+  return {};
 }
 
 /** 页面级用户信息提取（昵称/头像）：平台相关选择器，title 兜底 */
