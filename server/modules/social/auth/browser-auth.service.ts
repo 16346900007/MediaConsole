@@ -187,6 +187,15 @@ export class BrowserAuthService {
       // 避免抖音等平台未登录不跳独立登录域、仅靠 URL 误判为已登录
       const sessionCookies = await s.context.cookies().catch(() => []);
       const hasSession = hasSessionCookie(sessionCookies, s.platform);
+      // 快手诊断：cp.kuaishou.com/profile 未登录页 URL 无 login 字样，登录判据全靠会话
+      // cookie，打印实际 cookie 键名以核对判据是否正确（登录前后各一次）
+      if (s.platform === 'kuaishou') {
+        console.log(
+          `[browser-auth] kuaishou poll url=${url} hasSession=${hasSession} cookies=[${sessionCookies
+            .map((c) => c.name)
+            .join(',')}]`,
+        );
+      }
       // 视频号：点击"微信快捷登录"后按钮消失（进入创作中心但 URL 未变）视为已登录
       let quickLoginConfirmed = false;
       if (s.platform === 'shipinhao') {

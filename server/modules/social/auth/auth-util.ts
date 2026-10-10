@@ -166,6 +166,8 @@ export async function extractStoredUserInfo(
       weibo: ['uid'],
       // 视频号（微信生态）localStorage 无用户信息，wxuin 是稳定微信用户 ID
       shipinhao: ['wxuin'],
+      // 快手：userId 仅在登录后下发（游客无），是快手用户 ID
+      kuaishou: ['userId'],
     };
     const keys = uidCookieKeys[platform] ?? [];
     for (const c of state?.cookies ?? []) {

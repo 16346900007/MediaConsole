@@ -19,7 +19,7 @@ export const SESSION_COOKIE_KEYS: Partial<Record<SocialPlatform, string[]>> = {
   ],
   bilibili: ['SESSDATA'],
   weibo: ['SUB', 'SUBP'],
-  kuaishou: ['kuaishou.server.web_st', 'KUAISHOU_ST'],
+  kuaishou: ['kuaishou.web.cp.api_st', 'userId'],
   youtube: ['SID', 'SSID'],
 };
 
