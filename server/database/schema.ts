@@ -1,7 +1,7 @@
 /* eslint-disable */
 /** auto generated, do not edit */
 import { sql } from 'drizzle-orm';
-import { bigint, boolean, date, foreignKey, index, integer, pgTable, text, uniqueIndex, uuid, varchar, customType } from "drizzle-orm/pg-core"
+import { bigint, boolean, date, foreignKey, index, integer, jsonb, numeric, pgTable, text, uniqueIndex, uuid, varchar, customType } from "drizzle-orm/pg-core"
 
 export const customTimestamptz = customType<{
   data: Date;
@@ -287,6 +287,8 @@ export const socialAccounts = pgTable("social_accounts", {
   // 登录态校验字段（刷新校验后回填）
   online: boolean("online"),
   lastVerifiedAt: customTimestamptz("last_verified_at", { precision: 3 }),
+  // 数据页作品同步时间（10 分钟缓存刷新判据）
+  lastDataSyncedAt: customTimestamptz("last_data_synced_at", { precision: 3 }),
   // System field: Creation time (auto-filled, do not modify)
   createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Creator (auto-filled, do not modify)
@@ -299,6 +301,52 @@ export const socialAccounts = pgTable("social_accounts", {
     WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
 });
 
+/**
+ * 平台作品明细表（无头抓取各平台创作中心的真实作品数据）
+ * account_id + platform_post_id 唯一：重抓时按此去重 upsert
+ */
+export const socialPosts = pgTable("social_posts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  accountId: uuid("account_id").notNull(),
+  platform: varchar("platform", { length: 32 }).notNull(),
+  /** 平台侧作品唯一 ID（如快手 photoId / 抖音 awemeId / B站 BV号） */
+  platformPostId: varchar("platform_post_id", { length: 200 }).notNull(),
+  title: varchar("title", { length: 300 }).notNull().default(''),
+  coverUrl: text("cover_url"),
+  /** 原作品详情页链接（"查看原作品"跳转用） */
+  postUrl: text("post_url"),
+  views: integer("views").notNull().default(0),
+  likes: integer("likes").notNull().default(0),
+  comments: integer("comments").notNull().default(0),
+  /** 收藏量（B站/快手后台均为收藏） */
+  favorites: integer("favorites").notNull().default(0),
+  /** 完播率（%），平台无此指标时为 null */
+  watchRate: numeric("watch_rate", { precision: 6, scale: 2 }),
+  /** 涨粉量（作品维度），平台无此指标时为 0 */
+  followersDelta: integer("followers_delta").notNull().default(0),
+  publishedAt: customTimestamptz("published_at", { precision: 3 }),
+  /** 平台原始抓取数据备份（便于平台特有列扩展展示） */
+  raw: jsonb("raw"),
+  // System field: Creation time (auto-filled, do not modify)
+  createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  // System field: Creator (auto-filled, do not modify)
+  createdBy: userProfile("_created_by").default(sql`CASE
+    WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
+  // System field: Update time (auto-filled, do not modify)
+  updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  // System field: Updater (auto-filled, do not modify)
+  updatedBy: userProfile("_updated_by").default(sql`CASE
+    WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
+}, (table) => [
+  uniqueIndex("idx_posts_account_post").on(table.accountId, table.platformPostId),
+  index("idx_posts_published_at").on(table.publishedAt),
+  foreignKey({
+    columns: [table.accountId],
+    foreignColumns: [socialAccounts.id],
+    name: "social_posts_account_id_fkey",
+  }).onDelete("cascade"),
+]);
+
 // table aliases
 export const socialAccountsTable = socialAccounts;
 export const socialContentVariantsTable = socialContentVariants;
@@ -307,3 +355,4 @@ export const socialMaterialGroupsTable = socialMaterialGroups;
 export const socialMaterialsTable = socialMaterials;
 export const socialMetricsTable = socialMetrics;
 export const socialPublishPlansTable = socialPublishPlans;
+export const socialPostsTable = socialPosts;

@@ -4,6 +4,7 @@ import { Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout';
 import SocialAccounts from './pages/social-accounts';
 import SocialAnalytics from './pages/social-analytics';
+import AccountPosts from './pages/social-analytics/account-posts';
 import SocialContents from './pages/social-contents';
 import SocialDashboard from './pages/social-dashboard';
 import SocialMaterials from './pages/social-materials';
@@ -18,6 +19,7 @@ const RoutesComponent = () => {
         <Route path="contents" element={<SocialContents />} />
         <Route path="materials" element={<SocialMaterials />} />
         <Route path="analytics" element={<SocialAnalytics />} />
+        <Route path="analytics/:accountId" element={<AccountPosts />} />
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>

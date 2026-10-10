@@ -239,6 +239,47 @@ CREATE INDEX IF NOT EXISTS idx_plans_planned_date
   ON social_publish_plans (planned_date);
 
 -- ============================================================
+-- 8. 平台作品明细表（无头抓取各平台创作中心的真实作品数据）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS social_posts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id uuid NOT NULL,
+  platform varchar(32) NOT NULL,
+  platform_post_id varchar(200) NOT NULL,
+  title varchar(300) NOT NULL DEFAULT '',
+  cover_url text NULL,
+  post_url text NULL,
+  views integer NOT NULL DEFAULT 0,
+  likes integer NOT NULL DEFAULT 0,
+  comments integer NOT NULL DEFAULT 0,
+  favorites integer NOT NULL DEFAULT 0,
+  watch_rate numeric(6,2) NULL,
+  followers_delta integer NOT NULL DEFAULT 0,
+  published_at timestamptz(3) NULL,
+  raw jsonb NULL,
+  _created_at timestamptz(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  _created_by user_profile NULL DEFAULT (
+    CASE
+      WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL::user_profile
+      ELSE (concat('(', current_setting('app.user_id'::text, true), ')'))::user_profile
+    END
+  ),
+  _updated_at timestamptz(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  _updated_by user_profile NULL DEFAULT (
+    CASE
+      WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL::user_profile
+      ELSE (concat('(', current_setting('app.user_id'::text, true), ')'))::user_profile
+    END
+  ),
+  CONSTRAINT social_posts_account_id_fkey
+    FOREIGN KEY (account_id) REFERENCES social_accounts(id) ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_posts_account_post
+  ON social_posts (account_id, platform_post_id);
+CREATE INDEX IF NOT EXISTS idx_posts_published_at ON social_posts (published_at);
+
+-- ============================================================
 -- 幂等迁移：为已存在的 social_accounts 补 OAuth 授权字段
 -- （新建库由上方 CREATE TABLE 直接包含；旧库通过 ADD COLUMN IF NOT EXISTS 补齐）
 -- ============================================================
@@ -250,3 +291,7 @@ ALTER TABLE social_accounts
   ADD COLUMN IF NOT EXISTS token_expires_at timestamptz(3),
   ADD COLUMN IF NOT EXISTS online boolean,
   ADD COLUMN IF NOT EXISTS last_verified_at timestamptz(3);
+
+-- 幂等迁移：数据页作品同步时间（10 分钟缓存刷新判据）
+ALTER TABLE social_accounts
+  ADD COLUMN IF NOT EXISTS last_data_synced_at timestamptz(3);

@@ -31,7 +31,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/accounts', label: '账号矩阵', icon: Users },
   { to: '/contents', label: '内容中心', icon: FileText },
   { to: '/materials', label: '素材库', icon: Images },
-  { to: '/analytics', label: '数据复盘', icon: BarChart3 },
+  { to: '/analytics', label: '数据', icon: BarChart3 },
 ];
 
 const matchNavItem = (pathname: string): NavItem =>

@@ -12,6 +12,8 @@ import { AuthService } from './auth/auth.service';
 import { BrowserAuthService } from './auth/browser-auth.service';
 import { OpenExternalController } from './open-external.controller';
 import { AppController } from './app.controller';
+import { DataController } from './data.controller';
+import { DataService } from './data.service';
 
 @Module({
   imports: [],
@@ -23,6 +25,7 @@ import { AppController } from './app.controller';
     AuthController,
     OpenExternalController,
     AppController,
+    DataController,
   ],
   providers: [
     AccountsService,
@@ -31,6 +34,7 @@ import { AppController } from './app.controller';
     MaterialsService,
     AuthService,
     BrowserAuthService,
+    DataService,
   ],
 })
 export class SocialModule {}

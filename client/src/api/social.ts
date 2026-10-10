@@ -6,6 +6,8 @@ import type {
   CreateAccountRequest,
   CreateContentRequest,
   CreateMaterialRequest,
+  DataOverviewResponse,
+  DataSyncResponse,
   MaterialGroup,
   MaterialItem,
   MaterialListResponse,
@@ -17,6 +19,7 @@ import type {
   SocialAccount,
   SocialContent,
   SocialContentDetail,
+  SocialPost,
   SaveVariantsRequest,
   UpdateAccountRequest,
   UpdateContentRequest,
@@ -344,6 +347,40 @@ export async function openCacheDir(): Promise<{ ok: boolean }> {
   const response = await axiosForBackend({
     url: '/api/social/app/open-cache-dir',
     method: 'POST',
+  });
+  return response.data;
+}
+
+/** 数据总览：6 KPI 聚合 + 平台/账号分布（可选按账号筛选） */
+export async function getDataOverview(
+  accountId?: string,
+): Promise<DataOverviewResponse> {
+  const response = await axiosForBackend({
+    url: '/api/social/data/overview',
+    method: 'GET',
+    params: accountId ? { accountId } : undefined,
+  });
+  return response.data;
+}
+
+/** 账号作品列表 */
+export async function getDataPosts(accountId: string): Promise<SocialPost[]> {
+  const response = await axiosForBackend({
+    url: '/api/social/data/posts',
+    method: 'GET',
+    params: { accountId },
+  });
+  return response.data;
+}
+
+/** 触发数据同步（异步执行，默认全部账号） */
+export async function syncData(
+  accountId?: string,
+): Promise<DataSyncResponse> {
+  const response = await axiosForBackend({
+    url: '/api/social/data/sync',
+    method: 'POST',
+    params: accountId ? { accountId } : undefined,
   });
   return response.data;
 }

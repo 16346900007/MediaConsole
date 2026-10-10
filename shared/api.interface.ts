@@ -264,3 +264,80 @@ export interface MaterialUsageResponse {
   totalBytes: number;
   fileCount: number;
 }
+
+/** 平台作品（无头抓取的真实作品数据，来自 social_posts 表） */
+export interface SocialPost {
+  id: string;
+  accountId: string;
+  platform: SocialPlatform;
+  /** 平台侧作品唯一 ID */
+  platformPostId: string;
+  title: string;
+  coverUrl: string | null;
+  /** 原作品详情页链接（"查看原作品"跳转） */
+  postUrl: string | null;
+  views: number;
+  likes: number;
+  comments: number;
+  favorites: number;
+  /** 完播率（%），平台无此指标时为 null */
+  watchRate: number | null;
+  /** 涨粉量 */
+  followersDelta: number;
+  publishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 数据页：账号级聚合点 */
+export interface DataAccountPoint {
+  accountId: string;
+  accountName: string;
+  platform: SocialPlatform;
+  avatar: string | null;
+  followersCount: number;
+  postCount: number;
+  views: number;
+  likes: number;
+  comments: number;
+  favorites: number;
+}
+
+/** 数据页：平台级聚合点 */
+export interface DataPlatformPoint {
+  platform: SocialPlatform;
+  postCount: number;
+  followersCount: number;
+  views: number;
+  likes: number;
+  comments: number;
+  favorites: number;
+}
+
+/** 数据页：总览聚合 */
+export interface DataOverviewResponse {
+  /** 最近一次同步完成时间（无缓存时为 null） */
+  updatedAt: string | null;
+  /** 缓存超过 10 分钟需后台刷新 */
+  stale: boolean;
+  /** 正在同步中 */
+  syncing: boolean;
+  totals: {
+    postCount: number;
+    followersCount: number;
+    views: number;
+    likes: number;
+    comments: number;
+    favorites: number;
+  };
+  byPlatform: DataPlatformPoint[];
+  byAccount: DataAccountPoint[];
+}
+
+/** 数据页：触发同步 */
+export interface DataSyncResponse {
+  started: boolean;
+  /** 本次将同步的账号数 */
+  accounts: number;
+  message?: string;
+}

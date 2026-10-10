@@ -265,7 +265,7 @@ const SocialDashboard: React.FC = () => {
                       <BarChart3 className="h-4 w-4 text-white" />
                     </span>
                     <span className="text-sm font-bold text-white">
-                      去数据复盘
+                      去数据
                     </span>
                   </span>
                   <ArrowUpRight className="h-4 w-4 text-white/50 transition-colors group-hover:text-white" />
