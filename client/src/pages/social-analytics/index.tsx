@@ -187,9 +187,6 @@ const SocialAnalytics: React.FC = () => {
     return { totals, byPlatform, accounts };
   }, [data, filterPlatform]);
 
-  const maxPlatformViews =
-    view && view.byPlatform.length > 0 ? view.byPlatform[0].views : 0;
-
   const kpis = [
     { key: 'postCount', label: '总发布数', value: view?.totals.postCount ?? 0, icon: FilePlus2 },
     { key: 'followers', label: '总粉丝', value: view?.totals.followersCount ?? 0, icon: Users },
@@ -419,90 +416,6 @@ const SocialAnalytics: React.FC = () => {
                     })}
                   </tbody>
                 </table>
-              </div>
-            )}
-          </section>
-
-          {/* 04 账号列表 */}
-          <section className="rounded-none border-t-[3px] border-t-[#0033A0] bg-white shadow-md p-6">
-            <div className="mb-6">
-              <p className="mb-1 text-[12px] font-black uppercase tracking-[0.15em] text-[#0033A0]">
-                04. 账号作品
-              </p>
-              <p className="text-[10px] font-medium text-[#94A3B8]">
-                ACCOUNT WORKS · 点击进入作品列表
-              </p>
-            </div>
-            {loading ? (
-              <LoadingBlock />
-            ) : !view || view.accounts.length === 0 ? (
-              <EmptyHint />
-            ) : (
-              <div>
-                {view.accounts.map((acct) => {
-                  const ratio =
-                    maxPlatformViews > 0 ? acct.views / maxPlatformViews : 0;
-                  return (
-                    <button
-                      key={acct.accountId}
-                      type="button"
-                      onClick={() => navigate(`/analytics/${acct.accountId}`)}
-                      className="flex w-full items-center gap-4 border-b border-[#E2E8F0] py-3.5 text-left transition-colors hover:bg-slate-50 last:border-b-0"
-                    >
-                      <img
-                        src={PLATFORM_LOGOS[acct.platform]}
-                        alt=""
-                        className="size-6 shrink-0 rounded-none"
-                      />
-                      {acct.avatar ? (
-                        <img
-                          src={`/avatar-proxy?url=${encodeURIComponent(acct.avatar)}`}
-                          referrerPolicy="no-referrer"
-                          alt=""
-                          className="size-9 shrink-0 rounded-none object-cover"
-                          onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).style.display = 'none';
-                          }}
-                        />
-                      ) : (
-                        <span className="flex size-9 shrink-0 items-center justify-center rounded-none bg-[#EFF4FF] text-[12px] font-black text-[#0033A0]">
-                          {acct.accountName.slice(0, 1)}
-                        </span>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-[#0033A0]">
-                          {acct.accountName}
-                        </p>
-                        <p className="mt-0.5 text-[12px] font-medium text-[#94A3B8]">
-                          {PLATFORM_MAP[acct.platform].name} · {formatCount(acct.followersCount)} 粉丝 ·{' '}
-                          {acct.postCount} 作品
-                        </p>
-                      </div>
-                      <div className="hidden shrink-0 items-center gap-8 md:flex">
-                        <span className="w-16 text-right font-mono text-sm font-medium text-[#1A1A1A]">
-                          {formatCount(acct.views)}
-                        </span>
-                        <span className="w-14 text-right font-mono text-sm font-medium text-[#1A1A1A]">
-                          {formatCount(acct.likes)}
-                        </span>
-                        <span className="w-14 text-right font-mono text-sm font-medium text-[#1A1A1A]">
-                          {formatCount(acct.comments)}
-                        </span>
-                        <span className="w-14 text-right font-mono text-sm font-medium text-[#1A1A1A]">
-                          {formatCount(acct.favorites)}
-                        </span>
-                      </div>
-                      <div className="flex h-12 w-3 shrink-0 items-end rounded-none bg-[#E2E8F0]">
-                        <div
-                          className="w-3 rounded-none bg-[#99C2FF]"
-                          style={{
-                            height: `${acct.views > 0 ? Math.max(ratio * 100, 6) : 3}%`,
-                          }}
-                        />
-                      </div>
-                    </button>
-                  );
-                })}
               </div>
             )}
           </section>
