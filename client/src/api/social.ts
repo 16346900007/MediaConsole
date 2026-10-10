@@ -1,0 +1,318 @@
+import { axiosForBackend } from '@lark-apaas/client-toolkit/utils/getAxiosForBackend';
+import type {
+  AuthStartRequest,
+  AuthStartResponse,
+  ContentListResponse,
+  CreateAccountRequest,
+  CreateContentRequest,
+  CreateMaterialRequest,
+  MaterialGroup,
+  MaterialItem,
+  MaterialListResponse,
+  MaterialBatchDeleteRequest,
+  MaterialBatchMoveRequest,
+  MetricBatchResponse,
+  MetricInput,
+  MetricsSummaryResponse,
+  SocialAccount,
+  SocialContent,
+  SocialContentDetail,
+  SaveVariantsRequest,
+  UpdateAccountRequest,
+  UpdateContentRequest,
+  UpdateMaterialRequest,
+  MaterialUsageResponse,
+} from '@shared/api.interface';
+
+export async function listAccounts(params?: {
+  platform?: string;
+  group?: string;
+  status?: string;
+}): Promise<SocialAccount[]> {
+  const response = await axiosForBackend({
+    url: '/api/social/accounts',
+    method: 'GET',
+    params,
+  });
+  return response.data;
+}
+
+/** 校验单个账号登录态（cookie 是否过期 + 重新提取用户信息），返回更新后的账号 */
+export async function verifyAccount(id: string): Promise<SocialAccount> {
+  const response = await axiosForBackend({
+    url: `/api/social/accounts/verify/${id}`,
+    method: 'GET',
+  });
+  return response.data;
+}
+
+/** 发起平台 OAuth 授权，返回授权页地址 */
+export async function startAuth(
+  data: AuthStartRequest,
+): Promise<AuthStartResponse> {
+  const response = await axiosForBackend({
+    url: '/api/social/auth/start',
+    method: 'POST',
+    data,
+  });
+  return response.data;
+}
+
+/** 浏览器授权（个人号）：拉起本机 Edge 登录窗口 */
+export async function startBrowserAuth(data: {
+  platform: string;
+  /** 从原账号卡片发起重授权时传入，授权成功后刷新该账号而非新建 */
+  accountId?: string;
+}): Promise<{ ok: boolean; message?: string }> {
+  const response = await axiosForBackend({
+    url: '/api/social/auth/browser/start',
+    method: 'POST',
+    data,
+  });
+  return response.data;
+}
+
+/** 浏览器授权状态轮询 */
+export async function getBrowserAuthStatus(): Promise<{
+  status: 'idle' | 'pending' | 'success' | 'failed';
+  accountName?: string;
+  message?: string;
+}> {
+  const response = await axiosForBackend({
+    url: '/api/social/auth/browser/status',
+    method: 'GET',
+  });
+  return response.data;
+}
+
+export async function createAccount(
+  data: CreateAccountRequest,
+): Promise<SocialAccount> {
+  const response = await axiosForBackend({
+    url: '/api/social/accounts',
+    method: 'POST',
+    data,
+  });
+  return response.data;
+}
+
+export async function updateAccount(
+  id: string,
+  data: UpdateAccountRequest,
+): Promise<SocialAccount> {
+  const response = await axiosForBackend({
+    url: `/api/social/accounts/${id}`,
+    method: 'PATCH',
+    data,
+  });
+  return response.data;
+}
+
+export async function deleteAccount(id: string): Promise<void> {
+  await axiosForBackend({
+    url: `/api/social/accounts/${id}`,
+    method: 'DELETE',
+  });
+}
+
+export async function listContents(params?: {
+  status?: string;
+  contentType?: string;
+  keyword?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<ContentListResponse> {
+  const response = await axiosForBackend({
+    url: '/api/social/contents',
+    method: 'GET',
+    params,
+  });
+  return response.data;
+}
+
+export async function getContent(id: string): Promise<SocialContentDetail> {
+  const response = await axiosForBackend({
+    url: `/api/social/contents/${id}`,
+    method: 'GET',
+  });
+  return response.data;
+}
+
+export async function createContent(
+  data: CreateContentRequest,
+): Promise<SocialContent> {
+  const response = await axiosForBackend({
+    url: '/api/social/contents',
+    method: 'POST',
+    data,
+  });
+  return response.data;
+}
+
+export async function updateContent(
+  id: string,
+  data: UpdateContentRequest,
+): Promise<SocialContent> {
+  const response = await axiosForBackend({
+    url: `/api/social/contents/${id}`,
+    method: 'PATCH',
+    data,
+  });
+  return response.data;
+}
+
+export async function deleteContent(id: string): Promise<void> {
+  await axiosForBackend({
+    url: `/api/social/contents/${id}`,
+    method: 'DELETE',
+  });
+}
+
+export async function saveVariants(
+  contentId: string,
+  data: SaveVariantsRequest,
+): Promise<void> {
+  await axiosForBackend({
+    url: `/api/social/contents/${contentId}/variants`,
+    method: 'PUT',
+    data,
+  });
+}
+
+export async function createMetric(data: MetricInput): Promise<void> {
+  await axiosForBackend({
+    url: '/api/social/metrics',
+    method: 'POST',
+    data,
+  });
+}
+
+export async function importMetrics(
+  data: MetricInput[],
+): Promise<MetricBatchResponse> {
+  const response = await axiosForBackend({
+    url: '/api/social/metrics/batch',
+    method: 'POST',
+    data: { items: data },
+  });
+  return response.data;
+}
+
+export async function getMetricsSummary(
+  start: string,
+  end: string,
+): Promise<MetricsSummaryResponse> {
+  const response = await axiosForBackend({
+    url: '/api/social/metrics/summary',
+    method: 'GET',
+    params: { start, end },
+  });
+  return response.data;
+}
+
+export async function listMaterials(params?: {
+  type?: string;
+  group?: string;
+  keyword?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<MaterialListResponse> {
+  const response = await axiosForBackend({
+    url: '/api/social/materials',
+    method: 'GET',
+    params,
+  });
+  return response.data;
+}
+
+export async function listMaterialGroups(): Promise<MaterialGroup[]> {
+  const response = await axiosForBackend({
+    url: '/api/social/materials/groups',
+    method: 'GET',
+  });
+  return response.data;
+}
+
+export async function createMaterial(
+  data: CreateMaterialRequest,
+): Promise<MaterialItem> {
+  const response = await axiosForBackend({
+    url: '/api/social/materials',
+    method: 'POST',
+    data,
+  });
+  return response.data;
+}
+
+export async function updateMaterial(
+  id: string,
+  data: UpdateMaterialRequest,
+): Promise<MaterialItem> {
+  const response = await axiosForBackend({
+    url: `/api/social/materials/${id}`,
+    method: 'PATCH',
+    data,
+  });
+  return response.data;
+}
+
+export async function deleteMaterial(id: string): Promise<void> {
+  await axiosForBackend({
+    url: `/api/social/materials/${id}`,
+    method: 'DELETE',
+  });
+}
+
+export async function batchDeleteMaterials(
+  data: MaterialBatchDeleteRequest,
+): Promise<void> {
+  await axiosForBackend({
+    url: '/api/social/materials/batch-delete',
+    method: 'POST',
+    data,
+  });
+}
+
+export async function batchMoveMaterials(
+  data: MaterialBatchMoveRequest,
+): Promise<void> {
+  await axiosForBackend({
+    url: '/api/social/materials/batch-move',
+    method: 'POST',
+    data,
+  });
+}
+
+export async function createMaterialGroup(name: string): Promise<void> {
+  await axiosForBackend({
+    url: '/api/social/materials/groups',
+    method: 'POST',
+    data: { name },
+  });
+}
+
+export async function renameMaterialGroup(
+  oldName: string,
+  newName: string,
+): Promise<void> {
+  await axiosForBackend({
+    url: `/api/social/materials/groups/${encodeURIComponent(oldName)}`,
+    method: 'PATCH',
+    data: { name: newName },
+  });
+}
+
+export async function deleteMaterialGroup(name: string): Promise<void> {
+  await axiosForBackend({
+    url: `/api/social/materials/groups/${encodeURIComponent(name)}`,
+    method: 'DELETE',
+  });
+}
+
+export async function getMaterialUsage(): Promise<MaterialUsageResponse> {
+  const response = await axiosForBackend({
+    url: '/api/social/materials/usage',
+    method: 'GET',
+  });
+  return response.data;
+}
