@@ -17,6 +17,7 @@ import type {
 } from '@shared/api.interface';
 import { PLATFORM_MAP, PLATFORMS } from '@shared/platforms';
 import { getDataOverview, syncData } from '@client/src/api/social';
+import { PLATFORM_LOGOS } from '@/utils/platform-logos';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -61,8 +62,8 @@ const SocialAnalytics: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
-  /** 当前筛选账号 id（null=全部） */
-  const [filterAccount, setFilterAccount] = useState<string | null>(null);
+  /** 当前筛选平台（null=全部） */
+  const [filterPlatform, setFilterPlatform] = useState<keyof typeof PLATFORM_MAP | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const stopPolling = () => {
@@ -149,11 +150,11 @@ const SocialAnalytics: React.FC = () => {
     }
   }, []);
 
-  /** 前端筛选：按账号重算 totals / byPlatform / byAccount */
+  /** 前端筛选：按平台重算 totals / byPlatform / byAccount */
   const view = useMemo(() => {
     if (!data) return null;
-    const accounts: DataAccountPoint[] = filterAccount
-      ? data.byAccount.filter((a) => a.accountId === filterAccount)
+    const accounts: DataAccountPoint[] = filterPlatform
+      ? data.byAccount.filter((a) => a.platform === filterPlatform)
       : data.byAccount;
     const totals = accounts.reduce(
       (acc, a) => ({
@@ -184,7 +185,7 @@ const SocialAnalytics: React.FC = () => {
       }))
       .sort((a, b) => b.views - a.views);
     return { totals, byPlatform, accounts };
-  }, [data, filterAccount]);
+  }, [data, filterPlatform]);
 
   const maxPlatformViews =
     view && view.byPlatform.length > 0 ? view.byPlatform[0].views : 0;
@@ -223,29 +224,28 @@ const SocialAnalytics: React.FC = () => {
             <div className="flex flex-wrap gap-2.5">
               <button
                 type="button"
-                onClick={() => setFilterAccount(null)}
-                className={pillClass(filterAccount === null)}
+                onClick={() => setFilterPlatform(null)}
+                className={pillClass(filterPlatform === null)}
               >
-                全部账号
+                全部平台
               </button>
-              {data?.byAccount.map((acct) => (
+              {PLATFORMS.map((meta) => (
                 <button
-                  key={acct.accountId}
+                  key={meta.value}
                   type="button"
                   onClick={() =>
-                    setFilterAccount(
-                      filterAccount === acct.accountId ? null : acct.accountId,
+                    setFilterPlatform(
+                      filterPlatform === meta.value ? null : meta.value,
                     )
                   }
-                  className={pillClass(filterAccount === acct.accountId)}
+                  className={pillClass(filterPlatform === meta.value)}
                 >
-                  <span
-                    className="size-2 rounded-full"
-                    style={{
-                      backgroundColor: PLATFORM_MAP[acct.platform].color,
-                    }}
+                  <img
+                    src={PLATFORM_LOGOS[meta.value]}
+                    alt=""
+                    className="size-4 rounded-none"
                   />
-                  {acct.accountName}
+                  {meta.name}
                 </button>
               ))}
             </div>
@@ -335,19 +335,19 @@ const SocialAnalytics: React.FC = () => {
             )}
           </section>
 
-          {/* 03 平台分布 */}
+          {/* 03 账号分布 */}
           <section className="rounded-none border-t-[3px] border-t-[#0033A0] bg-white shadow-md p-6">
             <div className="mb-6">
               <p className="mb-1 text-[12px] font-black uppercase tracking-[0.15em] text-[#0033A0]">
-                03. 平台分布
+                03. 账号分布
               </p>
               <p className="text-[10px] font-medium text-[#94A3B8]">
-                PLATFORM DISTRIBUTION
+                ACCOUNT DISTRIBUTION · 点击账号进入作品列表
               </p>
             </div>
             {loading ? (
               <LoadingBlock />
-            ) : !view || view.byPlatform.length === 0 ? (
+            ) : !view || view.accounts.length === 0 ? (
               <EmptyHint />
             ) : (
               <div className="overflow-x-auto">
@@ -355,7 +355,7 @@ const SocialAnalytics: React.FC = () => {
                   <thead>
                     <tr className="border-b border-[#E2E8F0]">
                       {[
-                        '平台',
+                        '账号',
                         '发布数',
                         '粉丝数',
                         '播放量',
@@ -373,41 +373,46 @@ const SocialAnalytics: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {view.byPlatform.map((p) => {
-                      const meta = PLATFORM_MAP[p.platform as keyof typeof PLATFORM_MAP];
+                    {view.accounts.map((acct) => {
+                      const meta = PLATFORM_MAP[acct.platform];
                       return (
                         <tr
-                          key={p.platform}
-                          className="border-b border-[#E2E8F0] transition-colors last:border-b-0 hover:bg-slate-50"
+                          key={acct.accountId}
+                          onClick={() => navigate(`/analytics/${acct.accountId}`)}
+                          className="cursor-pointer border-b border-[#E2E8F0] transition-colors last:border-b-0 hover:bg-slate-50"
                         >
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2.5">
-                              <span
-                                className="size-2.5 rounded-full"
-                                style={{ backgroundColor: meta?.color }}
+                              <img
+                                src={PLATFORM_LOGOS[acct.platform]}
+                                alt=""
+                                className="size-5 shrink-0 rounded-none"
                               />
                               <span className="text-sm font-bold text-[#0033A0]">
-                                {meta?.name ?? p.platform}
+                                {acct.accountName}
+                              </span>
+                              <span className="text-[12px] font-medium text-[#94A3B8]">
+                                {meta.name}
                               </span>
                             </div>
                           </td>
                           <td className="px-4 py-3 font-mono text-right text-sm font-medium text-[#1A1A1A]">
-                            {formatCount(p.postCount)}
+                            {formatCount(acct.postCount)}
                           </td>
                           <td className="px-4 py-3 font-mono text-right text-sm font-medium text-[#1A1A1A]">
-                            {formatCount(p.followersCount)}
+                            {formatCount(acct.followersCount)}
                           </td>
                           <td className="px-4 py-3 font-mono text-right text-sm font-bold text-[#1A1A1A]">
-                            {formatCount(p.views)}
+                            {formatCount(acct.views)}
                           </td>
                           <td className="px-4 py-3 font-mono text-right text-sm font-medium text-[#1A1A1A]">
-                            {formatCount(p.comments)}
+                            {formatCount(acct.comments)}
                           </td>
                           <td className="px-4 py-3 font-mono text-right text-sm font-medium text-[#1A1A1A]">
-                            {formatCount(p.likes)}
+                            {formatCount(acct.likes)}
                           </td>
                           <td className="px-4 py-3 font-mono text-right text-sm font-medium text-[#1A1A1A]">
-                            {formatCount(p.favorites)}
+                            {formatCount(acct.favorites)}
                           </td>
                         </tr>
                       );
@@ -435,7 +440,6 @@ const SocialAnalytics: React.FC = () => {
             ) : (
               <div>
                 {view.accounts.map((acct) => {
-                  const meta = PLATFORM_MAP[acct.platform];
                   const ratio =
                     maxPlatformViews > 0 ? acct.views / maxPlatformViews : 0;
                   return (
@@ -445,9 +449,10 @@ const SocialAnalytics: React.FC = () => {
                       onClick={() => navigate(`/analytics/${acct.accountId}`)}
                       className="flex w-full items-center gap-4 border-b border-[#E2E8F0] py-3.5 text-left transition-colors hover:bg-slate-50 last:border-b-0"
                     >
-                      <span
-                        className="size-2.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: meta.color }}
+                      <img
+                        src={PLATFORM_LOGOS[acct.platform]}
+                        alt=""
+                        className="size-6 shrink-0 rounded-none"
                       />
                       {acct.avatar ? (
                         <img
@@ -469,7 +474,7 @@ const SocialAnalytics: React.FC = () => {
                           {acct.accountName}
                         </p>
                         <p className="mt-0.5 text-[12px] font-medium text-[#94A3B8]">
-                          {meta.name} · {formatCount(acct.followersCount)} 粉丝 ·{' '}
+                          {PLATFORM_MAP[acct.platform].name} · {formatCount(acct.followersCount)} 粉丝 ·{' '}
                           {acct.postCount} 作品
                         </p>
                       </div>
