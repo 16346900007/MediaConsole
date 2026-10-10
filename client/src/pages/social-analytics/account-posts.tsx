@@ -132,11 +132,11 @@ const AccountPosts: React.FC = () => {
       <div>
         <button
           type="button"
-          onClick={() => navigate('/analytics')}
+          onClick={() => navigate('/')}
           className="mb-4 flex items-center gap-1.5 text-[12px] font-medium text-[#94A3B8] transition-colors hover:text-[#0033A0]"
         >
           <ArrowLeft className="size-3.5" />
-          返回数据总览
+          返回工作台
         </button>
         <div className="mb-6">
           <p className="mb-1 text-[12px] font-black uppercase tracking-[0.15em] text-[#0033A0]">
