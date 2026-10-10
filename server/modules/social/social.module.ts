@@ -11,6 +11,7 @@ import { AuthController } from './auth/auth.controller';
 import { AuthService } from './auth/auth.service';
 import { BrowserAuthService } from './auth/browser-auth.service';
 import { OpenExternalController } from './open-external.controller';
+import { AppController } from './app.controller';
 
 @Module({
   imports: [],
@@ -21,6 +22,7 @@ import { OpenExternalController } from './open-external.controller';
     MaterialsController,
     AuthController,
     OpenExternalController,
+    AppController,
   ],
   providers: [
     AccountsService,

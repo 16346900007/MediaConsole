@@ -316,3 +316,34 @@ export async function getMaterialUsage(): Promise<MaterialUsageResponse> {
   });
   return response.data;
 }
+
+/** 桌面端 WebView2 缓存信息（目录 + 占用大小） */
+export async function getCacheInfo(): Promise<{ dir: string; sizeMB: number }> {
+  const response = await axiosForBackend({
+    url: '/api/social/app/cache-info',
+    method: 'GET',
+  });
+  return response.data;
+}
+
+/** 清理桌面端 WebView2 缓存（可删即删，被进程占用的下次启动清除） */
+export async function clearAppCache(): Promise<{
+  clearedMB: number;
+  removedItems: number;
+  failedItems: number;
+}> {
+  const response = await axiosForBackend({
+    url: '/api/social/app/clear-cache',
+    method: 'POST',
+  });
+  return response.data;
+}
+
+/** 在系统资源管理器中打开缓存目录 */
+export async function openCacheDir(): Promise<{ ok: boolean }> {
+  const response = await axiosForBackend({
+    url: '/api/social/app/open-cache-dir',
+    method: 'POST',
+  });
+  return response.data;
+}
