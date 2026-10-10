@@ -1,32 +1,26 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
-import { toast } from 'sonner';
 import {
   AlertCircle,
   BarChart3,
   CalendarDays,
   Eye,
   MessageCircle,
-  Plus,
   RotateCcw,
   ThumbsUp,
-  Upload,
   UserPlus,
 } from 'lucide-react';
 import type {
   MetricsSummaryResponse,
-  SocialAccount,
   SocialPlatform,
 } from '@shared/api.interface';
 import { PLATFORMS, PLATFORM_MAP } from '@shared/platforms';
-import { getMetricsSummary, listAccounts } from '@client/src/api/social';
+import { getMetricsSummary } from '@client/src/api/social';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import CsvImportDialog from './csv-import-dialog';
-import MetricInputDialog from './metric-input-dialog';
 import PlatformPie from './platform-pie';
 import TrendChart from './trend-chart';
 import { formatCount, resolveErrorMessage } from './helpers';
@@ -81,7 +75,7 @@ const DatePickerField: React.FC<DatePickerFieldProps> = ({
 const EmptyHint: React.FC = () => (
   <div className="flex h-[300px] flex-col items-center justify-center gap-2 rounded-none border border-dashed border-[#E2E8F0]">
     <BarChart3 className="size-8 text-[#94A3B8]" />
-    <p className="text-[12px] font-medium text-slate-600">暂无数据，先录入或导入</p>
+    <p className="text-[12px] font-medium text-slate-600">暂无数据，平台授权后将自动抓取真实数据</p>
   </div>
 );
 
@@ -100,9 +94,6 @@ const SocialAnalytics: React.FC = () => {
   const [summary, setSummary] = useState<MetricsSummaryResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [accounts, setAccounts] = useState<SocialAccount[]>([]);
-  const [metricDialogOpen, setMetricDialogOpen] = useState<boolean>(false);
-  const [csvDialogOpen, setCsvDialogOpen] = useState<boolean>(false);
 
   const loadSummary = useCallback(async () => {
     setLoading(true);
@@ -120,16 +111,6 @@ const SocialAnalytics: React.FC = () => {
   useEffect(() => {
     void loadSummary();
   }, [loadSummary]);
-
-  useEffect(() => {
-    listAccounts()
-      .then((items: SocialAccount[]) => setAccounts(items))
-      .catch((err: unknown) =>
-        toast.error('账号列表加载失败', {
-          description: resolveErrorMessage(err),
-        }),
-      );
-  }, []);
 
   const handleStartChange = (value: string) => {
     setRangeStart(value);
@@ -236,24 +217,7 @@ const SocialAnalytics: React.FC = () => {
                 onChange={handleEndChange}
               />
             </div>
-            <div className="flex flex-wrap gap-3">
-              <Button
-                type="button"
-                onClick={() => setMetricDialogOpen(true)}
-                className="rounded-none bg-[#0033A0] text-white hover:bg-[#004B93]"
-              >
-                <Plus className="size-4" />
-                手工录入
-              </Button>
-              <Button
-                type="button"
-                onClick={() => setCsvDialogOpen(true)}
-                className="rounded-none bg-[#0033A0] text-white hover:bg-[#004B93]"
-              >
-                <Upload className="size-4" />
-                导入 CSV
-              </Button>
-            </div>
+            <div className="flex flex-wrap gap-3" />
           </div>
 
           <div className="mt-5 flex flex-wrap gap-2.5">
@@ -444,18 +408,6 @@ const SocialAnalytics: React.FC = () => {
           </>
         )}
       </div>
-
-      <MetricInputDialog
-        open={metricDialogOpen}
-        accounts={accounts}
-        onOpenChange={setMetricDialogOpen}
-        onCreated={() => void loadSummary()}
-      />
-      <CsvImportDialog
-        open={csvDialogOpen}
-        onOpenChange={setCsvDialogOpen}
-        onImported={() => void loadSummary()}
-      />
     </div>
   );
 };
