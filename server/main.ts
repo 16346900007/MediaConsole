@@ -77,6 +77,7 @@ async function bootstrap() {
     'xhscdn.com',
     'kuaishou.com', // 快手
     'kwimgs.com',
+    'qlogo.cn', // 视频号/微信头像（wx.qlogo.cn/finderhead）
   ];
   const avatarRefererFor = (hostname: string): string => {
     if (hostname.includes('hdslb.com')) return 'https://www.bilibili.com/';
@@ -89,6 +90,8 @@ async function bootstrap() {
       return 'https://www.xiaohongshu.com/';
     if (hostname.includes('kuaishou.com') || hostname.includes('kwimgs.com'))
       return 'https://cp.kuaishou.com/';
+    if (hostname.includes('qlogo.cn'))
+      return 'https://channels.weixin.qq.com/';
     return '';
   };
   app.use('/avatar-proxy', async (req: any, res: any, next: any) => {
