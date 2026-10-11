@@ -72,28 +72,41 @@ export class FilesService {
     return `${randomUUID()}${ext}`;
   }
 
+  /** 桶名归一：兼容无前缀短名（publish-tmp/materials）与带前缀真实桶名，未知/空兜底 publish-tmp */
+  resolveBucket(input?: string): FileBucket {
+    const raw = (input ?? '').trim();
+    if (FILE_BUCKETS.includes(raw as FileBucket)) return raw as FileBucket;
+    const alias: Record<string, FileBucket> = {
+      'publish-tmp': `${BUCKET_PREFIX}-publish-tmp`,
+      'materials': `${BUCKET_PREFIX}-materials`,
+    };
+    const mapped = alias[raw];
+    return mapped && FILE_BUCKETS.includes(mapped) ? mapped : FILE_BUCKETS[0];
+  }
+
   private bucketOf(fileKey: string): { bucket: string; key: string } {
     const idx = fileKey.indexOf('/');
     if (idx <= 0 || idx === fileKey.length - 1) throw new Error(`invalid fileKey: ${fileKey}`);
-    return { bucket: fileKey.slice(0, idx), key: fileKey.slice(idx + 1) };
+    return { bucket: this.resolveBucket(fileKey.slice(0, idx)), key: fileKey.slice(idx + 1) };
   }
 
   /** 保存文件到指定 bucket */
   async save(
-    bucket: FileBucket,
+    bucket: FileBucket | string,
     key: string,
     buffer: Buffer,
     mime?: string,
   ): Promise<{ fileKey: string; size: number }> {
+    const b = this.resolveBucket(bucket);
     const safeKey = key.replace(/[^A-Za-z0-9._-]/g, '');
     if (this.s3) {
-      await this.s3.putObject(bucket, safeKey, buffer, buffer.length, { 'Content-Type': mime || 'application/octet-stream' });
+      await this.s3.putObject(b, safeKey, buffer, buffer.length, { 'Content-Type': mime || 'application/octet-stream' });
     } else {
-      const dir = join(this.root, bucket);
+      const dir = join(this.root, b);
       mkdirSync(dir, { recursive: true });
       writeFileSync(join(dir, safeKey), buffer);
     }
-    return { fileKey: `${bucket}/${safeKey}`, size: buffer.length };
+    return { fileKey: `${b}/${safeKey}`, size: buffer.length };
   }
 
   /**

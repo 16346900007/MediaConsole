@@ -12,8 +12,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { NeedLogin } from '@lark-apaas/fullstack-nestjs-core';
 import type { Response } from 'express';
 import type { FileUploadResponse } from '@shared/api.interface';
-import { FilesService, FILE_BUCKETS, type FileBucket } from './files.service';
-
+import { FilesService } from './files.service';
 @Controller('api/social/files')
 export class FilesController {
   constructor(private readonly filesService: FilesService) {}
@@ -33,9 +32,8 @@ export class FilesController {
     if (!file?.buffer) {
       throw new Error('缺少文件内容（file 字段）');
     }
-    const b: FileBucket = (FILE_BUCKETS as readonly string[]).includes(bucket ?? '')
-      ? (bucket as FileBucket)
-      : 'publish-tmp';
+    // 桶名归一：兼容前端短名（publish-tmp/materials）与带前缀真实桶名
+    const b = this.filesService.resolveBucket(bucket);
     const key = this.filesService.generateKey(file.originalname ?? 'file');
     const { fileKey } = await this.filesService.save(b, key, file.buffer, file.mimetype);
     const stat = await this.filesService.stat(fileKey);
