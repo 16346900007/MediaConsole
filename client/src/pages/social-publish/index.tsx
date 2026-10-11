@@ -169,7 +169,8 @@ export default function SocialPublish() {
                             src={PLATFORM_LOGOS[t.platform as keyof typeof PLATFORM_LOGOS]}
                             alt={PLATFORM_MAP[t.platform]?.name ?? t.platform}
                             title={PLATFORM_MAP[t.platform]?.name ?? t.platform}
-                            className="size-6 rounded-none object-contain bg-[#F1F5F9] p-0.5"
+                            className="rounded-none object-contain"
+                            style={{ width: 'calc(var(--spacing) * 6)', height: 'calc(var(--spacing) * 6)' }}
                           />
                         ))}
                         {task.targets.length > 6 && (

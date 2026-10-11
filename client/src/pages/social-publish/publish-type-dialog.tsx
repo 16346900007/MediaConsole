@@ -1,7 +1,6 @@
 import { Video, Image as ImageIcon, FileText } from 'lucide-react';
 import { PLATFORM_MAP, PUBLISH_TYPE_LABELS, PUBLISH_TYPE_PLATFORMS, type PublishType } from '@shared/platforms';
 import { PLATFORM_LOGOS } from '@/utils/platform-logos';
-import { cn } from '@/lib/utils';
 
 interface Props {
   onSelect: (type: PublishType) => void;
@@ -68,10 +67,8 @@ export default function PublishTypeDialog({ onSelect, onClose }: Props) {
                       src={PLATFORM_LOGOS[p as keyof typeof PLATFORM_LOGOS]}
                       alt={PLATFORM_MAP[p]?.name}
                       title={PLATFORM_MAP[p]?.name}
-                      className={cn(
-                        'size-7 rounded-none object-contain',
-                        'bg-[#F1F5F9] p-0.5',
-                      )}
+                      className="rounded-none object-contain"
+                      style={{ width: 'calc(var(--spacing) * 6)', height: 'calc(var(--spacing) * 6)' }}
                     />
                   ))}
                 </div>
