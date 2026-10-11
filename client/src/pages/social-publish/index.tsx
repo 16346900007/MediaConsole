@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Send, Trash2, Pencil, Clock } from 'lucide-react';
+import { Plus, Send, Trash2, Pencil, Clock, Eye, X } from 'lucide-react';
 import { axiosForBackend } from '@lark-apaas/client-toolkit/utils/getAxiosForBackend';
-import type { PublishTask } from '@shared/api.interface';
+import type { PublishTask, PublishTarget } from '@shared/api.interface';
 import { PLATFORM_MAP, PUBLISH_TYPE_LABELS, type PublishType } from '@shared/platforms';
 import {
   deletePublishTask,
@@ -43,6 +43,190 @@ const STATUS_COLORS: Record<string, string> = {
   failed: 'bg-[#FEF2F2] text-[#EF4444]',
 };
 
+/** 目标平台发布状态徽章 */
+const TARGET_STATUS_LABELS: Record<string, string> = {
+  pending: '待发布',
+  publishing: '发布中',
+  success: '发布成功',
+  failed: '推送失败',
+};
+const TARGET_STATUS_COLORS: Record<string, string> = {
+  pending: 'bg-slate-100 text-slate-600',
+  publishing: 'bg-[#EFF4FF] text-[#0033A0]',
+  success: 'bg-[#ECFDF5] text-[#10B981]',
+  failed: 'bg-[#FEF2F2] text-[#EF4444]',
+};
+
+/** 可编辑状态：草稿/已排期；发布中及以后不允许编辑，只能查看进度 */
+const EDITABLE_STATUS = new Set(['draft', 'scheduled']);
+
+/** 各平台发布进度详情弹窗（点击已发布任务打开） */
+function PublishProgressDialog({
+  task,
+  onClose,
+}: {
+  task: PublishTask;
+  onClose: () => void;
+}) {
+  const [kw, setKw] = useState('');
+  const [platformFilter, setPlatformFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+
+  const platforms = useMemo(
+    () => [...new Set(task.targets.map((t) => t.platform))],
+    [task.targets],
+  );
+
+  const filtered = useMemo(() => {
+    let rows = task.targets;
+    if (kw.trim()) {
+      const q = kw.trim().toLowerCase();
+      rows = rows.filter(
+        (t) =>
+          (t.accountName ?? '').toLowerCase().includes(q) ||
+          (PLATFORM_MAP[t.platform]?.name ?? t.platform).toLowerCase().includes(q),
+      );
+    }
+    if (platformFilter) rows = rows.filter((t) => t.platform === platformFilter);
+    if (statusFilter) rows = rows.filter((t) => t.status === statusFilter);
+    return rows;
+  }, [task.targets, kw, platformFilter, statusFilter]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">
+      <div className="flex max-h-[80vh] w-full max-w-[720px] flex-col rounded-none border-t-[3px] border-t-[#0033A0] bg-white shadow-md">
+        {/* 头部：标题 + 状态 + 关闭 */}
+        <div className="flex items-start justify-between gap-4 border-b border-[#E2E8F0] p-6">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h2 className="truncate text-lg font-bold text-[#1A1A1A]">
+                {task.title || '(无标题)'}
+              </h2>
+              <span className={cn('shrink-0 rounded-sm px-2 py-1 text-[12px] font-bold', STATUS_COLORS[task.status] ?? 'bg-slate-100 text-slate-600')}>
+                {STATUS_LABELS[task.status] ?? task.status}
+              </span>
+            </div>
+            <p className="mt-1 text-[10px] font-medium text-[#94A3B8]">
+              本机发布 · {PUBLISH_TYPE_LABELS[task.publishType]} · 共 {task.targets.length} 个发布任务
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="shrink-0 rounded-none p-2 text-[#94A3B8] transition-colors hover:bg-slate-50 hover:text-[#1A1A1A]"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+
+        {/* 筛选栏 */}
+        <div className="flex flex-wrap items-center gap-2 border-b border-[#E2E8F0] px-6 py-3">
+          <input
+            value={kw}
+            onChange={(e) => setKw(e.target.value)}
+            placeholder="搜索账号名称"
+            className="w-[220px] rounded-none border border-[#E2E8F0] bg-white px-3 py-1.5 text-sm outline-none focus:border-[#0033A0]"
+          />
+          <select
+            value={platformFilter}
+            onChange={(e) => setPlatformFilter(e.target.value)}
+            className="rounded-none border border-[#E2E8F0] bg-white px-3 py-1.5 text-sm outline-none focus:border-[#0033A0]"
+          >
+            <option value="">全部平台</option>
+            {platforms.map((p) => (
+              <option key={p} value={p}>
+                {PLATFORM_MAP[p]?.name ?? p}
+              </option>
+            ))}
+          </select>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="rounded-none border border-[#E2E8F0] bg-white px-3 py-1.5 text-sm outline-none focus:border-[#0033A0]"
+          >
+            <option value="">全部状态</option>
+            {Object.entries(TARGET_STATUS_LABELS).map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* 平台进度列表 */}
+        <div className="min-h-0 flex-1 overflow-y-auto p-6">
+          {filtered.length === 0 ? (
+            <div className="flex h-[160px] flex-col items-center justify-center gap-2 rounded-none border border-dashed border-[#E2E8F0]">
+              <Send className="size-6 text-[#94A3B8]" />
+              <p className="text-[12px] font-medium text-[#94A3B8]">没有匹配的发布任务</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filtered.map((t) => (
+                <TargetRow key={t.id} target={t} />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** 单个目标平台发布状态行 */
+function TargetRow({ target }: { target: PublishTarget }) {
+  return (
+    <div
+      className={cn(
+        'rounded-none border border-[#E2E8F0] p-4',
+        target.status === 'failed' && 'border-[#FECACA] bg-[#FEF2F2]',
+        target.status === 'success' && 'bg-white',
+      )}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <img
+            src={PLATFORM_LOGOS[target.platform as keyof typeof PLATFORM_LOGOS]}
+            alt={PLATFORM_MAP[target.platform]?.name ?? target.platform}
+            title={PLATFORM_MAP[target.platform]?.name ?? target.platform}
+            className="shrink-0 rounded-none object-contain"
+            style={{ width: 'calc(var(--spacing) * 7)', height: 'calc(var(--spacing) * 7)' }}
+          />
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold text-[#1A1A1A]">
+              {PLATFORM_MAP[target.platform]?.name ?? target.platform}
+              <span className="ml-1 font-medium text-[#94A3B8]">/ {target.accountName || '未知账号'}</span>
+            </p>
+            {target.postUrl && (
+              <a
+                href={target.postUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-0.5 inline-block max-w-full truncate text-[12px] font-medium text-[#0033A0] hover:underline"
+              >
+                {target.postUrl}
+              </a>
+            )}
+          </div>
+        </div>
+        <span className={cn('shrink-0 rounded-sm px-2 py-1 text-[12px] font-bold', TARGET_STATUS_COLORS[target.status] ?? 'bg-slate-100 text-slate-600')}>
+          {TARGET_STATUS_LABELS[target.status] ?? target.status}
+        </span>
+        {target.status === 'publishing' && typeof target.progress === 'number' && target.progress > 0 && (
+          <span className="shrink-0 rounded-sm bg-[#EFF4FF] px-2 py-1 text-[12px] font-bold text-[#0033A0]">
+            上传中 {target.progress}%
+          </span>
+        )}
+      </div>
+      {target.status === 'failed' && target.error && (
+        <p className="mt-2 border-t border-[#FECACA] pt-2 text-[12px] font-medium text-[#EF4444]">
+          发布失败：{target.error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function SocialPublish() {
   const navigate = useNavigate();
   const [tasks, setTasks] = useState<PublishTask[] | null>(null);
@@ -52,6 +236,8 @@ export default function SocialPublish() {
   /** 待确认删除的发布单 */
   const [confirmDelete, setConfirmDelete] = useState<PublishTask | null>(null);
   const [deleting, setDeleting] = useState(false);
+  /** 查看各平台发布进度弹窗 */
+  const [progressTask, setProgressTask] = useState<PublishTask | null>(null);
 
   const load = async () => {
     setError(null);
@@ -66,6 +252,15 @@ export default function SocialPublish() {
     void load();
   }, [statusFilter]);
 
+  // 存在发布中任务时轮询，实时刷新各平台上传进度
+  useEffect(() => {
+    const hasPublishing = tasks?.some((t) => t.status === 'publishing') ?? false;
+    if (!hasPublishing) return;
+    const timer = setInterval(() => void load(), 5000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks, statusFilter]);
+
   const handleDelete = async (id: string) => {
     setDeleting(true);
     try {
@@ -76,6 +271,15 @@ export default function SocialPublish() {
       setError(resolveErrorMessage(e));
     } finally {
       setDeleting(false);
+    }
+  };
+
+  /** 行主操作：可编辑 → 进入编辑页；已发布/发布中/失败 → 打开各平台进度弹窗 */
+  const openTask = (task: PublishTask) => {
+    if (EDITABLE_STATUS.has(task.status)) {
+      navigate(`/publish/${task.id}`);
+    } else {
+      setProgressTask(task);
     }
   };
 
@@ -173,7 +377,7 @@ export default function SocialPublish() {
                       <button
                         type="button"
                         className="max-w-[280px] truncate text-sm font-bold text-[#0033A0] hover:underline"
-                        onClick={() => navigate(`/publish/${task.id}`)}
+                        onClick={() => openTask(task)}
                       >
                         {task.title || '(无标题)'}
                       </button>
@@ -222,10 +426,19 @@ export default function SocialPublish() {
                           type="button"
                           variant="outline"
                           className="h-8 rounded-none px-3 text-[12px] font-medium text-[#0033A0] hover:bg-[#EFF4FF]"
-                          onClick={() => navigate(`/publish/${task.id}`)}
+                          onClick={() => openTask(task)}
                         >
-                          <Pencil className="size-3.5" />
-                          {task.status === 'published' ? '查看' : '编辑'}
+                          {EDITABLE_STATUS.has(task.status) ? (
+                            <>
+                              <Pencil className="size-3.5" />
+                              编辑
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="size-3.5" />
+                              进度
+                            </>
+                          )}
                         </Button>
                         {task.status !== 'publishing' && (
                           <Button
@@ -275,6 +488,14 @@ export default function SocialPublish() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* 各平台发布进度弹窗（已发布/发布中/失败任务点击查看） */}
+      {progressTask && (
+        <PublishProgressDialog
+          task={progressTask}
+          onClose={() => setProgressTask(null)}
+        />
+      )}
     </div>
   );
 }

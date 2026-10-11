@@ -448,6 +448,8 @@ export interface PublishTarget {
   accountName?: string;
   status: PublishTargetStatus;
   error: string | null;
+  /** 上传/发布进度（0-100；发布中实时更新） */
+  progress?: number;
   /** 平台侧作品 ID（发布成功后） */
   platformPostId: string | null;
   postUrl: string | null;

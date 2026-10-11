@@ -410,6 +410,7 @@ CREATE TABLE IF NOT EXISTS social_publish_targets (
   account_id uuid NOT NULL REFERENCES social_accounts(id) ON DELETE CASCADE,
   status varchar(16) NOT NULL DEFAULT 'pending',
   error text NULL,
+  progress integer NOT NULL DEFAULT 0,
   platform_post_id varchar(200) NULL,
   post_url text NULL,
   published_at timestamptz(3) NULL,

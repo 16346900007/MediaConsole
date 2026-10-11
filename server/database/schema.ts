@@ -457,6 +457,8 @@ export const socialPublishTargets = pgTable("social_publish_targets", {
   /** 目标状态：pending/publishing/success/failed */
   status: varchar("status", { length: 16 }).notNull().default('pending'),
   error: text("error"),
+  /** 上传/发布进度（0-100，非发布中为 0） */
+  progress: integer("progress").notNull().default(0),
   /** 平台侧作品 ID（发布成功后） */
   platformPostId: varchar("platform_post_id", { length: 200 }),
   postUrl: text("post_url"),

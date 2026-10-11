@@ -251,7 +251,7 @@ export class PublishService implements OnModuleInit, OnModuleDestroy {
       const task = await this.getTask(id);
       const targets = task.targets.filter((t) => t.status !== 'success');
       for (const target of targets) {
-        await this.updateTargetStatus(target.id, 'publishing', null);
+        await this.updateTargetStatus(target.id, 'publishing', null, 0);
         try {
           const account = (
             await this.db
@@ -259,6 +259,7 @@ export class PublishService implements OnModuleInit, OnModuleDestroy {
               .from(socialAccounts)
               .where(eq(socialAccounts.id, target.accountId))
           )[0];
+          let lastProgress = -1;
           const result = await runPublish(
             target.platform,
             {
@@ -278,6 +279,18 @@ export class PublishService implements OnModuleInit, OnModuleDestroy {
               accountName: account?.accountName ?? target.accountName ?? '',
             },
             this.files,
+            (p) => {
+              // 上传进度实时落库（供任务列表展示）；限频：每 5% 写一次
+              const next = Math.max(0, Math.min(100, Math.round(p.percent)));
+              if (next !== lastProgress) {
+                lastProgress = next;
+                void this.db
+                  .update(socialPublishTargets)
+                  .set({ progress: next })
+                  .where(eq(socialPublishTargets.id, target.id))
+                  .catch(() => {});
+              }
+            },
           );
           await this.db
             .update(socialPublishTargets)
@@ -343,10 +356,11 @@ export class PublishService implements OnModuleInit, OnModuleDestroy {
     targetId: string,
     status: PublishTargetStatus,
     error: string | null,
+    progress?: number,
   ): Promise<void> {
     await this.db
       .update(socialPublishTargets)
-      .set({ status, error })
+      .set({ status, error, ...(progress !== undefined ? { progress } : {}) })
       .where(eq(socialPublishTargets.id, targetId));
   }
 
@@ -406,6 +420,7 @@ export class PublishService implements OnModuleInit, OnModuleDestroy {
           accountName: acctName.get(t.accountId),
           status: t.status as PublishTargetStatus,
           error: t.error,
+          progress: t.progress,
           platformPostId: t.platformPostId,
           postUrl: t.postUrl,
           publishedAt: t.publishedAt ? t.publishedAt.toISOString() : null,
