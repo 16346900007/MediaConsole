@@ -82,8 +82,8 @@ export class FilesController {
       res.status(404).send('not found');
       return;
     }
-    res.setHeader('Accept-Ranges', 'bytes');
-    res.setHeader('Cache-Control', 'no-store');
+    // 视频播放等场景允许缓存，避免每次重复拉取
+    res.setHeader('Cache-Control', 'private, max-age=3600');
 
     const range = req.headers.range;
     if (range) {
@@ -102,26 +102,35 @@ export class FilesController {
         res.status(416).send('range not satisfiable');
         return;
       }
-      const buf = await this.filesService.readRange(fileKey, start, end);
-      if (!buf) {
+      const stream = await this.filesService.createReadStream(fileKey, start, end);
+      if (!stream) {
         res.status(404).send('not found');
         return;
       }
       res.status(206);
+      res.setHeader('Accept-Ranges', 'bytes');
       res.setHeader('Content-Type', stat.mime);
-      res.setHeader('Content-Length', buf.length);
+      res.setHeader('Content-Length', end - start + 1);
       res.setHeader('Content-Range', `bytes ${start}-${end}/${size}`);
-      res.end(buf);
+      stream.on('error', () => {
+        res.destroy();
+      });
+      stream.pipe(res);
       return;
     }
 
-    res.setHeader('Content-Type', stat.mime);
-    res.setHeader('Content-Length', stat.size);
-    const buf = await this.filesService.read(fileKey);
-    if (!buf) {
+    // 无 Range（视频元素探测/首次加载）：流式返回，边读边发，不等整包
+    const stream = await this.filesService.createReadStream(fileKey);
+    if (!stream) {
       res.status(404).send('not found');
       return;
     }
-    res.end(buf);
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Content-Type', stat.mime);
+    res.setHeader('Content-Length', stat.size);
+    stream.on('error', () => {
+      res.destroy();
+    });
+    stream.pipe(res);
   }
 }

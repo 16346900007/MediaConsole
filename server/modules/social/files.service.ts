@@ -191,6 +191,33 @@ export class FilesService {
     }
   }
 
+  /**
+   * 流式读取（视频播放/大文件下载：边读边发，不整包缓冲）。
+   * S3 模式返回 MinIO getObject/getPartialObject 原生流；
+   * 磁盘模式返回 fs.createReadStream（支持 start/end 区间）。
+   */
+  async createReadStream(
+    fileKey: string,
+    start?: number,
+    end?: number,
+  ): Promise<import('node:stream').Readable | null> {
+    const { bucket, key } = this.bucketOf(fileKey);
+    try {
+      if (this.s3) {
+        if (start !== undefined && end !== undefined) {
+          return this.s3.getPartialObject(bucket, key, start, end);
+        }
+        return this.s3.getObject(bucket, key);
+      }
+      if (start !== undefined && end !== undefined) {
+        return createReadStream(this.localPath(fileKey), { start, end });
+      }
+      return createReadStream(this.localPath(fileKey));
+    } catch {
+      return null;
+    }
+  }
+
   async stat(fileKey: string): Promise<{ size: number; mime: string } | null> {
     if (this.s3) {
       try {
