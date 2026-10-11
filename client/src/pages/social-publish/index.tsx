@@ -6,6 +6,7 @@ import type { PublishTask, PublishTarget } from '@shared/api.interface';
 import { PLATFORM_MAP, PUBLISH_TYPE_LABELS, type PublishType } from '@shared/platforms';
 import {
   deletePublishTask,
+  getPublishTask,
   listPublishTasks,
 } from '@client/src/api/social';
 import { Button } from '@/components/ui/button';
@@ -261,6 +262,27 @@ export default function SocialPublish() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks, statusFilter]);
 
+  // 进度弹窗打开时独立轮询刷新该任务，避免弹窗停留在打开瞬间的快照
+  useEffect(() => {
+    if (!progressTask) return;
+    let alive = true;
+    const refresh = async () => {
+      try {
+        const fresh = await getPublishTask(progressTask.id);
+        if (alive) setProgressTask(fresh);
+      } catch {
+        /* 拉取失败时保留当前快照 */
+      }
+    };
+    void refresh();
+    const timer = setInterval(() => void refresh(), 5000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [progressTask?.id]);
+
   const handleDelete = async (id: string) => {
     setDeleting(true);
     try {
@@ -402,9 +424,25 @@ export default function SocialPublish() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={cn('rounded-sm px-2 py-1 text-[12px] font-bold', STATUS_COLORS[task.status] ?? 'bg-slate-100 text-slate-600')}>
-                        {STATUS_LABELS[task.status] ?? task.status}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={cn('shrink-0 rounded-sm px-2 py-1 text-[12px] font-bold', STATUS_COLORS[task.status] ?? 'bg-slate-100 text-slate-600')}>
+                          {STATUS_LABELS[task.status] ?? task.status}
+                        </span>
+                        {task.status === 'publishing' &&
+                          (() => {
+                            const p = Math.max(
+                              0,
+                              ...task.targets
+                                .filter((t) => t.status === 'publishing')
+                                .map((t) => (typeof t.progress === 'number' ? t.progress : 0)),
+                            );
+                            return p > 0 ? (
+                              <span className="shrink-0 rounded-sm bg-[#EFF4FF] px-2 py-1 text-[12px] font-bold text-[#0033A0]">
+                                上传中 {p}%
+                              </span>
+                            ) : null;
+                          })()}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       {task.scheduledAt ? (
