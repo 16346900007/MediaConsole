@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
+import Lightbox from 'yet-another-react-lightbox';
+import Video from 'yet-another-react-lightbox/plugins/video';
+import 'yet-another-react-lightbox/styles.css';
 import { ArrowLeft, CalendarClock, FileVideo, ImagePlus, Save, Send, Trash2, Upload } from 'lucide-react';
 import type {
   PublishTask,
@@ -103,8 +106,8 @@ export default function PublishEditor() {
   const [scheduleAt, setScheduleAt] = useState<string>('');
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [uploading, setUploading] = useState(false);
-  /** 视频预览开关 */
-  const [videoPreview, setVideoPreview] = useState(false);
+  /** 弹窗预览：类型 + 当前索引 */
+  const [preview, setPreview] = useState<{ kind: 'video' | 'image' | 'cover'; index: number } | null>(null);
 
   /* 加载已有发布单 */
   const load = useCallback(async () => {
@@ -198,10 +201,14 @@ export default function PublishEditor() {
   const handleFiles = async (files: File[] | null, kind: 'media' | 'cover') => {
     if (!files?.length) return;
     let list = Array.from(files);
-    // 视频仅支持单个：多余文件忽略并提示
-    if (kind === 'media' && publishType === 'video' && list.length > 1) {
-      setError('视频仅支持单个文件，已忽略多余文件');
-      list = [list[0]];
+    // 视频最多 5 个：超出部分忽略并提示
+    if (kind === 'media' && publishType === 'video') {
+      const room = Math.max(0, 5 - mediaFileKeys.length);
+      if (list.length > room) {
+        setError(`视频最多上传 5 个，已忽略多余文件`);
+        list = list.slice(0, room);
+      }
+      if (list.length === 0) return;
     }
     // 类型校验（drop 不受 input accept 约束，需手动校验）
     const allowed =
@@ -245,7 +252,7 @@ export default function PublishEditor() {
   /* 三个上传框的 react-dropzone 实例（内部处理 dragenter/dragleave 状态，isDragActive 即悬停提示） */
   const videoDrop = useDropzone({
     accept: { 'video/*': ['.mp4', '.webm', '.mov'] },
-    multiple: false,
+    multiple: true,
     onDrop: (files) => void handleFiles(files, 'media'),
   });
   const imageDrop = useDropzone({
@@ -394,36 +401,45 @@ export default function PublishEditor() {
             })}
           >
             {mediaFileKeys.length > 0 ? (
-              videoPreview ? (
-                <div className="flex w-full flex-col gap-2 px-4 py-3">
-                  <video
-                    src={`/api/social/files/${mediaFileKeys[0]}`}
-                    controls
-                    className="max-h-[160px] w-full rounded-none border border-[#E2E8F0] bg-black object-contain"
-                  />
-                  <div className="flex items-center justify-between">
-                    <p className="truncate text-[12px] font-bold text-[#1A1A1A]">
-                      {mediaNames[0] ?? mediaFileKeys[0]}
-                    </p>
-                    <div className="flex items-center gap-2">
+              <div className="flex w-full flex-col gap-1.5 p-4">
+                {mediaFileKeys.map((key, i) => (
+                  <div
+                    key={key}
+                    className="flex items-center justify-between gap-3 rounded-none border border-[#E2E8F0] bg-white px-3 py-2"
+                  >
+                    <button
+                      type="button"
+                      className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPreview({ kind: 'video', index: i });
+                      }}
+                    >
+                      <FileVideo className="size-4.5 shrink-0 text-[#0033A0]" />
+                      <div className="min-w-0">
+                        <p className="truncate text-[12px] font-bold text-[#1A1A1A]">
+                          {i + 1}. {mediaNames[i] ?? key}
+                        </p>
+                      </div>
+                    </button>
+                    <div className="flex shrink-0 items-center gap-1.5">
                       <button
                         type="button"
-                        className="text-[12px] font-bold text-[#0033A0] hover:underline"
+                        className="text-[11px] font-bold text-[#0033A0] hover:underline"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setVideoPreview(false);
+                          setPreview({ kind: 'video', index: i });
                         }}
                       >
-                        收起预览
+                        预览
                       </button>
                       <button
                         type="button"
                         className="flex size-6 items-center justify-center rounded-none bg-[#FEF2F2] text-[#EF4444] transition-colors hover:bg-[#EF4444] hover:text-white"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setMediaFileKeys([]);
-                          setMediaNames([]);
-                          setVideoPreview(false);
+                          setMediaFileKeys((prev) => prev.filter((_, idx) => idx !== i));
+                          setMediaNames((prev) => prev.filter((_, idx) => idx !== i));
                         }}
                         title="移除视频"
                       >
@@ -431,41 +447,11 @@ export default function PublishEditor() {
                       </button>
                     </div>
                   </div>
-                </div>
-              ) : (
-                <div className="flex w-full items-center justify-between gap-3 px-5 py-4">
-                  <button
-                    type="button"
-                    className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setVideoPreview(true);
-                    }}
-                  >
-                    <FileVideo className="size-5 shrink-0 text-[#0033A0]" />
-                    <div className="min-w-0">
-                      <p className="truncate text-[12px] font-bold text-[#1A1A1A]">
-                        {mediaNames[0] ?? mediaFileKeys[0]}
-                      </p>
-                      <p className="text-[10px] font-medium text-[#0033A0]">
-                        点击预览 · 可点击或拖拽替换
-                      </p>
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    className="flex size-6 shrink-0 items-center justify-center rounded-none bg-[#FEF2F2] text-[#EF4444] transition-colors hover:bg-[#EF4444] hover:text-white"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMediaFileKeys([]);
-                      setMediaNames([]);
-                    }}
-                    title="移除视频"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
-                </div>
-              )
+                ))}
+                <p className="mt-1 text-[10px] font-medium text-[#94A3B8]">
+                  {mediaFileKeys.length}/5 · 可继续点击或拖拽添加（MP4/WebM/MOV），点击视频可弹窗预览
+                </p>
+              </div>
             ) : (
               <>
                 {uploading ? (
@@ -485,7 +471,7 @@ export default function PublishEditor() {
                     ? '上传中…'
                     : videoDrop.isDragActive
                       ? '松开即上传'
-                      : '点击或拖拽视频文件到此处（MP4/WebM/MOV）'}
+                      : '点击或拖拽视频文件到此处（最多 5 个，MP4/WebM/MOV）'}
                 </span>
               </>
             )}
@@ -507,11 +493,21 @@ export default function PublishEditor() {
               <div className="flex w-full flex-wrap items-center gap-3 p-4">
                 {mediaFileKeys.map((key, i) => (
                   <div key={key} className="group relative">
-                    <img
-                      src={`/api/social/files/${key}`}
-                      alt=""
-                      className="size-20 rounded-none border border-[#E2E8F0] object-cover"
-                    />
+                    <button
+                      type="button"
+                      className="block"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPreview({ kind: 'image', index: i });
+                      }}
+                      title="点击预览"
+                    >
+                      <img
+                        src={`/api/social/files/${key}`}
+                        alt=""
+                        className="size-20 rounded-none border border-[#E2E8F0] object-cover transition-opacity group-hover:opacity-90"
+                      />
+                    </button>
                     <button
                       type="button"
                       className="absolute -top-1.5 -right-1.5 flex size-5 items-center justify-center rounded-full bg-[#EF4444] text-white shadow-sm transition-transform hover:scale-110"
@@ -572,6 +568,15 @@ export default function PublishEditor() {
           >
             {coverFileKey ? (
               <>
+                <button
+                  type="button"
+                  className="absolute inset-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPreview({ kind: 'cover', index: 0 });
+                  }}
+                  title="点击预览封面"
+                />
                 <img
                   src={`/api/social/files/${coverFileKey}`}
                   alt=""
@@ -811,6 +816,29 @@ export default function PublishEditor() {
           发布完成后临时文件自动清除，不占用系统存储；失败的平台账号保留文件可重试。
         </p>
       </section>
+
+      {/* 弹窗预览（视频/图片/封面） */}
+      <Lightbox
+        open={preview !== null}
+        close={() => setPreview(null)}
+        plugins={[Video]}
+        index={preview?.index ?? 0}
+        slides={
+          preview
+            ? preview.kind === 'video'
+              ? mediaFileKeys.map((key) => ({
+                  type: 'video' as const,
+                  sources: [{ src: `/api/social/files/${key}` }],
+                }))
+              : (preview.kind === 'cover'
+                  ? coverFileKey
+                    ? [coverFileKey]
+                    : []
+                  : mediaFileKeys
+                ).map((key) => ({ src: `/api/social/files/${key}` }))
+            : []
+        }
+      />
 
       {/* 底部固定操作栏 */}
       <div className="sticky bottom-0 z-30 -mx-8 flex items-center justify-end gap-2 border-t border-[#E2E8F0] bg-white px-8 py-3 shadow-[0_-2px_8px_rgba(0,0,0,0.06)]">
