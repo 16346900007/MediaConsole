@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FC, ReactNode } from 'react';
-import { AlertTriangle, Plus, RefreshCw, Users } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckSquare,
+  FolderDown,
+  Plus,
+  RefreshCw,
+  Users,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { PLATFORMS } from '@shared/platforms';
 import type { PlatformMeta } from '@shared/platforms';
@@ -8,6 +15,7 @@ import { PLATFORM_LOGOS } from '@/utils/platform-logos';
 import { Image } from '@client/src/components/ui/image';
 import type { AccountGroup, SocialAccount } from '@shared/api.interface';
 import {
+  batchMoveAccounts,
   createAccountGroup,
   deleteAccount,
   deleteAccountGroup,
@@ -26,6 +34,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import GroupSidebar from '../social-materials/group-sidebar';
@@ -52,6 +67,12 @@ const SocialAccounts: FC = () => {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
   const [refreshLoading, setRefreshLoading] = useState(false);
+  /** 批量模式：勾选账号后迁移分组 */
+  const [batchMode, setBatchMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [moveOpen, setMoveOpen] = useState(false);
+  const [targetGroup, setTargetGroup] = useState('');
+  const [moving, setMoving] = useState(false);
 
   const loadGroups = useCallback(async (): Promise<void> => {
     try {
@@ -86,6 +107,11 @@ const SocialAccounts: FC = () => {
   useEffect(() => {
     void load();
   }, [load]);
+
+  /** 切换平台筛选/分组时清空勾选 */
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [platformFilter, activeGroup]);
 
   useEffect(() => {
     void loadGroups();
@@ -281,6 +307,53 @@ const SocialAccounts: FC = () => {
     }
   };
 
+  /** 批量模式切换：进入时清空勾选 */
+  const handleToggleBatchMode = (): void => {
+    setBatchMode((prev: boolean): boolean => {
+      if (prev) {
+        setSelectedIds(new Set());
+      }
+      return !prev;
+    });
+  };
+
+  /** 勾选/取消勾选单个账号 */
+  const handleToggleSelect = (id: string): void => {
+    setSelectedIds((prev: Set<string>): Set<string> => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  /** 批量移动到分组 */
+  const handleBatchMove = async (): Promise<void> => {
+    if (!targetGroup) {
+      toast.warning('请选择目标分组');
+      return;
+    }
+    setMoving(true);
+    try {
+      await batchMoveAccounts({
+        ids: Array.from(selectedIds),
+        groupName: targetGroup === '__none__' ? null : targetGroup,
+      });
+      toast.success(`已移动 ${selectedIds.size} 个账号`);
+      setTargetGroup('');
+      setMoveOpen(false);
+      setSelectedIds(new Set());
+      await load();
+    } catch (error: unknown) {
+      toast.error(`移动失败：${extractErrorMessage(error)}`);
+    } finally {
+      setMoving(false);
+    }
+  };
+
   /** 工作台同款筛选样式：实心蓝底、可再次点击取消（toggle） */
   const pillClass = (active: boolean): string =>
     cn(
@@ -333,6 +406,19 @@ const SocialAccounts: FC = () => {
               ))}
             </div>
             <div className="flex items-center gap-2">
+              {batchMode && selectedIds.size > 0 && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setTargetGroup('__none__');
+                    setMoveOpen(true);
+                  }}
+                  className="rounded-none border-[#E2E8F0] text-[#475569] hover:bg-slate-50 hover:text-[#0033A0]"
+                >
+                  <FolderDown className="mr-1 size-3.5" />
+                  移动至分组
+                </Button>
+              )}
               <Button
                 onClick={() => void handleRefresh()}
                 variant="outline"
@@ -343,6 +429,18 @@ const SocialAccounts: FC = () => {
                   className={`mr-1.5 h-4 w-4 ${refreshLoading ? 'animate-spin' : ''}`}
                 />
                 刷新校验
+              </Button>
+              <Button
+                variant={batchMode ? 'default' : 'outline'}
+                onClick={handleToggleBatchMode}
+                className={
+                  batchMode
+                    ? 'rounded-none bg-[#0033A0] hover:bg-[#002680]'
+                    : 'rounded-none border-[#E2E8F0] text-[#475569] hover:bg-slate-50 hover:text-[#0033A0]'
+                }
+              >
+                <CheckSquare className="mr-1 size-3.5" />
+                {batchMode ? '退出批量' : '批量操作'}
               </Button>
               <Button
                 onClick={handleAuthAccount}
@@ -408,6 +506,9 @@ const SocialAccounts: FC = () => {
                   verifying={verifyingId === account.id}
                   onAuthRequest={() => void handleQuickReAuth(account)}
                   onVerify={() => void handleVerifyOne(account)}
+                  batchMode={batchMode}
+                  selected={selectedIds.has(account.id)}
+                  onToggleSelect={() => handleToggleSelect(account.id)}
                 />
               ))}
             </div>
@@ -428,6 +529,49 @@ const SocialAccounts: FC = () => {
         onClose={() => setPlatformAuthOpen(false)}
         onAuthorize={handlePlatformAuthorized}
       />
+
+      {/* 批量移动至分组弹窗 */}
+      <Dialog open={moveOpen} onOpenChange={setMoveOpen}>
+        <DialogContent className="w-[380px] rounded-none border-t-[3px] border-t-[#0033A0] p-6 shadow-md">
+          <DialogHeader className="pb-4">
+            <DialogTitle className="flex items-center gap-2 text-lg font-bold text-[#1A1A1A]">
+              <FolderDown className="size-5 text-[#0033A0]" />
+              移动 {selectedIds.size} 个账号至分组
+            </DialogTitle>
+          </DialogHeader>
+          <Select value={targetGroup} onValueChange={setTargetGroup}>
+            <SelectTrigger className="h-9 rounded-none border-[#E2E8F0] text-sm">
+              <SelectValue placeholder="选择目标分组" />
+            </SelectTrigger>
+            <SelectContent className="rounded-none">
+              <SelectItem value="__none__" className="text-sm">
+                未分组
+              </SelectItem>
+              {groups.map((g: AccountGroup) => (
+                <SelectItem key={g.name} value={g.name} className="text-sm">
+                  {g.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="mt-5 flex items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setMoveOpen(false)}
+              className="rounded-none border-[#E2E8F0]"
+            >
+              取消
+            </Button>
+            <Button
+              onClick={() => void handleBatchMove()}
+              disabled={moving || !targetGroup}
+              className="rounded-none bg-[#0033A0] hover:bg-[#002680]"
+            >
+              {moving ? '移动中...' : '确定'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={deletingAccount !== null}

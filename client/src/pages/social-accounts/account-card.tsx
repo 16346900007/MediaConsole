@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ExternalLink, Loader2, RefreshCw, Trash2 } from 'lucide-react';
+import { Check, ExternalLink, Loader2, RefreshCw, Trash2 } from 'lucide-react';
 import type { FC, ReactNode } from 'react';
 import { PLATFORM_MAP } from '@shared/platforms';
 import type { SocialAccount } from '@shared/api.interface';
@@ -16,6 +16,12 @@ interface AccountCardProps {
   onAuthRequest?: () => void;
   /** 单独刷新该卡片在线状态 */
   onVerify?: () => void;
+  /** 批量模式：卡片可勾选 */
+  batchMode?: boolean;
+  /** 是否已勾选 */
+  selected?: boolean;
+  /** 勾选/取消勾选 */
+  onToggleSelect?: () => void;
 }
 
 /** 打开外部链接：带账号登录态由后端拉起 Edge 窗口，无登录态回退系统浏览器 */
@@ -76,6 +82,9 @@ const AccountCard: FC<AccountCardProps> = ({
   verifying = false,
   onAuthRequest,
   onVerify,
+  batchMode = false,
+  selected = false,
+  onToggleSelect,
 }) => {
   const platform = PLATFORM_MAP[account.platform];
   const avatar = account.avatar;
@@ -105,9 +114,31 @@ const AccountCard: FC<AccountCardProps> = ({
   };
 
   return (
-    <div className="relative flex items-center gap-4 rounded-none border-t-[3px] border-t-[#0033A0] bg-white p-6 shadow-md transition-colors hover:bg-slate-50">
+    <div
+      className={`relative flex items-center gap-4 rounded-none border-t-[3px] border-t-[#0033A0] bg-white p-6 shadow-md transition-colors ${
+        batchMode ? 'cursor-pointer hover:border-[#0033A0]' : 'hover:bg-slate-50'
+      } ${
+        selected
+          ? 'border-l-[3px] border-l-[#0033A0]'
+          : 'border-l-[3px] border-l-transparent'
+      }`}
+      onClick={batchMode ? onToggleSelect : undefined}
+    >
       {/* 右上角卷角状态标签 */}
       <StatusBadge online={account.online ?? null} verifying={verifying} />
+
+      {/* 批量模式勾选框 */}
+      {batchMode && (
+        <span
+          className={`absolute left-2 top-2 z-10 flex size-5 items-center justify-center rounded-none border transition-colors ${
+            selected
+              ? 'border-[#0033A0] bg-[#0033A0] text-white'
+              : 'border-[#94A3B8] bg-white/80 text-transparent'
+          }`}
+        >
+          <Check className="size-3.5" />
+        </span>
+      )}
 
       {/* 头像：优先平台头像，无头像或加载失败时用平台 logo 兜底 */}
       <div className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#F8FAFC] ring-1 ring-[#E2E8F0]">
@@ -158,36 +189,38 @@ const AccountCard: FC<AccountCardProps> = ({
         )}
       </div>
 
-      <div className="flex shrink-0 items-center gap-1">
-        <button
-          type="button"
-          onClick={handleOpenCreator}
-          className="inline-flex size-8 items-center justify-center rounded-none text-[#94A3B8] transition-colors hover:bg-slate-50 hover:text-[#0033A0]"
-          aria-label="打开创作中心"
-          title={account.online === false ? '登录态已失效，点击重新授权' : '打开创作中心'}
-        >
-          <ExternalLink className="size-3.5" />
-        </button>
-        {/* 单独刷新该卡片在线状态 */}
-        <button
-          type="button"
-          onClick={onVerify}
-          disabled={verifying}
-          className="inline-flex size-8 items-center justify-center rounded-none text-[#94A3B8] transition-colors hover:bg-slate-50 hover:text-[#0033A0] disabled:cursor-not-allowed disabled:opacity-60"
-          aria-label="刷新校验"
-          title="刷新校验该账号在线状态"
-        >
-          <RefreshCw className={`size-3.5 ${verifying ? 'animate-spin' : ''}`} />
-        </button>
-        <button
-          type="button"
-          onClick={() => onDelete(account)}
-          className="inline-flex size-8 shrink-0 items-center justify-center rounded-none text-[#94A3B8] transition-colors hover:bg-[#FEF2F2] hover:text-[#EF4444]"
-          aria-label="删除账号"
-        >
-          <Trash2 className="size-3.5" />
-        </button>
-      </div>
+      {!batchMode && (
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={handleOpenCreator}
+            className="inline-flex size-8 items-center justify-center rounded-none text-[#94A3B8] transition-colors hover:bg-slate-50 hover:text-[#0033A0]"
+            aria-label="打开创作中心"
+            title={account.online === false ? '登录态已失效，点击重新授权' : '打开创作中心'}
+          >
+            <ExternalLink className="size-3.5" />
+          </button>
+          {/* 单独刷新该卡片在线状态 */}
+          <button
+            type="button"
+            onClick={onVerify}
+            disabled={verifying}
+            className="inline-flex size-8 items-center justify-center rounded-none text-[#94A3B8] transition-colors hover:bg-slate-50 hover:text-[#0033A0] disabled:cursor-not-allowed disabled:opacity-60"
+            aria-label="刷新校验"
+            title="刷新校验该账号在线状态"
+          >
+            <RefreshCw className={`size-3.5 ${verifying ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            type="button"
+            onClick={() => onDelete(account)}
+            className="inline-flex size-8 shrink-0 items-center justify-center rounded-none text-[#94A3B8] transition-colors hover:bg-[#FEF2F2] hover:text-[#EF4444]"
+            aria-label="删除账号"
+          >
+            <Trash2 className="size-3.5" />
+          </button>
+        </div>
+      )}
     </div>
   );
 };
