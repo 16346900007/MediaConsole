@@ -143,6 +143,7 @@ async function publishBilibili(
   const { page, task, files } = ctx;
   // 记录实际调用的接口（诊断用，追加到后端日志目录）
   const { appendFileSync } = require('node:fs') as typeof import('node:fs');
+  const BILI_LOG = 'C:/Users/Administrator/AppData/Roaming/SocialManager/logs/bili-requests.log';
   page.on('request', (r) => {
     const u = r.url();
     if (
@@ -151,8 +152,23 @@ async function publishBilibili(
     ) {
       try {
         appendFileSync(
-          'C:/Users/Administrator/AppData/Roaming/SocialManager/logs/bili-requests.log',
+          BILI_LOG,
           `${new Date().toISOString()} ${r.method()} ${u.split('?')[0]}\n`,
+        );
+      } catch {}
+    }
+  });
+  // 记录响应状态码：上传接口（multipart/part、complete 等）只有状态码能证明是否真正成功
+  page.on('response', (r) => {
+    const u = r.url();
+    if (
+      /member\.bilibili\.com\/x\/vupre/.test(u) ||
+      /member\.bilibili\.com\/upload\//.test(u)
+    ) {
+      try {
+        appendFileSync(
+          BILI_LOG,
+          `${new Date().toISOString()} RESP ${r.status()} ${r.request().method()} ${u.split('?')[0]}\n`,
         );
       } catch {}
     }
