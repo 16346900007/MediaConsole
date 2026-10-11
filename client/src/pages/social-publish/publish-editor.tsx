@@ -100,6 +100,7 @@ export default function PublishEditor() {
   const [targets, setTargets] = useState<{ platform: string; accountId: string }[]>([]);
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
   const [scheduleAt, setScheduleAt] = useState<string>('');
+  const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   /* 加载已有发布单 */
@@ -120,6 +121,7 @@ export default function PublishEditor() {
       setPlatformFields(task.platformFields ?? {});
       setTargets(task.targets.map((t) => ({ platform: t.platform, accountId: t.accountId })));
       if (task.status === 'scheduled' && task.scheduledAt) {
+        setScheduleEnabled(true);
         setScheduleAt(task.scheduledAt.slice(0, 16));
       }
     } catch (e) {
@@ -606,17 +608,34 @@ export default function PublishEditor() {
             SCHEDULE · 定时为本地到点触发（需后端服务运行）
           </p>
         </div>
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="min-w-[280px] flex-1">
-            <p className="mb-2 text-[10px] font-black uppercase tracking-tight text-[#94A3B8]">
-              定时发布时间
-            </p>
-            <input
-              type="datetime-local"
-              value={scheduleAt}
-              onChange={(e) => setScheduleAt(e.target.value)}
-              className="w-full rounded-none border border-[#E2E8F0] bg-white px-3 py-2 text-sm outline-none focus:border-[#0033A0]"
-            />
+        <div className="flex flex-wrap items-end gap-6">
+          {/* 定时发布：勾选即生效 */}
+          <div className="min-w-[320px] flex-1">
+            <label className="flex cursor-pointer items-center gap-2.5">
+              <input
+                type="checkbox"
+                checked={scheduleEnabled}
+                onChange={(e) => setScheduleEnabled(e.target.checked)}
+                className="size-4 accent-[#0033A0]"
+              />
+              <span className="text-sm font-bold text-[#1A1A1A]">定时发布</span>
+              <span className="text-[10px] font-medium text-[#94A3B8]">
+                勾选后设置时间，到点自动发布
+              </span>
+            </label>
+            {scheduleEnabled && (
+              <div className="mt-3">
+                <p className="mb-2 text-[10px] font-black uppercase tracking-tight text-[#94A3B8]">
+                  定时发布时间
+                </p>
+                <input
+                  type="datetime-local"
+                  value={scheduleAt}
+                  onChange={(e) => setScheduleAt(e.target.value)}
+                  className="w-full rounded-none border border-[#E2E8F0] bg-white px-3 py-2 text-sm outline-none focus:border-[#0033A0]"
+                />
+              </div>
+            )}
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
@@ -631,22 +650,24 @@ export default function PublishEditor() {
             </Button>
             <Button
               type="button"
-              variant="outline"
-              className="rounded-none border-[#F59E0B] text-[#F59E0B] hover:bg-[#FFFBEB]"
-              disabled={saving || uploading || !scheduleAt}
-              onClick={() => void handleSchedule()}
-            >
-              <CalendarClock className="size-4" />
-              定时发布
-            </Button>
-            <Button
-              type="button"
-              className="rounded-none bg-[#0033A0] text-white hover:bg-[#00236E]"
+              className={cn(
+                'rounded-none text-white',
+                scheduleEnabled ? 'bg-[#F59E0B] hover:bg-[#D97706]' : 'bg-[#0033A0] hover:bg-[#00236E]',
+              )}
               disabled={saving || uploading}
-              onClick={() => void handlePublishNow()}
+              onClick={() => void (scheduleEnabled ? handleSchedule() : handlePublishNow())}
             >
-              <Send className="size-4" />
-              立即发布
+              {scheduleEnabled ? (
+                <>
+                  <CalendarClock className="size-4" />
+                  定时发布
+                </>
+              ) : (
+                <>
+                  <Send className="size-4" />
+                  立即发布
+                </>
+              )}
             </Button>
           </div>
         </div>
