@@ -7,8 +7,6 @@ import {
   UploadCloud,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { getDataloom } from '@lark-apaas/client-toolkit/dataloom';
-import { getDefaultBucketId } from '@lark-apaas/client-toolkit/tools/storage';
 import {
   Dialog,
   DialogContent,
@@ -23,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { createMaterial } from '@client/src/api/social';
+import { createMaterial, uploadPublishFile } from '@client/src/api/social';
 import type { MaterialGroup, MaterialType } from '@shared/api.interface';
 
 interface UploadFileItem {
@@ -89,33 +87,17 @@ const UploadMaterialDialog: FC<UploadMaterialDialogProps> = ({
     }
     setUploading(true);
     try {
-      const dataloom = await getDataloom();
-      const bucketId = getDefaultBucketId();
       for (const item of files) {
-        const { data, error } = await dataloom.storage
-          .from(bucketId)
-          .uploadFile(item.file);
-        if (error || !data) {
-          const msg =
-            typeof error === 'object' &&
-            error !== null &&
-            'message' in error &&
-            typeof error.message === 'string'
-              ? error.message
-              : '上传失败';
-          throw new Error(msg);
-        }
-        const width: number | null = null;
-        const height: number | null = null;
+        const uploaded = await uploadPublishFile(item.file, 'materials');
         await createMaterial({
           name: item.file.name,
           type: item.type,
-          filePath: data.file_path,
-          fileUrl: data.download_url,
+          filePath: uploaded.fileKey,
+          fileUrl: uploaded.url,
           fileSize: item.file.size,
           groupName: groupName || null,
-          width,
-          height,
+          width: null,
+          height: null,
         });
       }
       toast.success(`成功上传 ${files.length} 个文件`);
