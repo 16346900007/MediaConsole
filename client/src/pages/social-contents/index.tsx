@@ -282,7 +282,7 @@ const SocialContents: FC = () => {
 
   return (
     <div>
-      <div className="max-w-7xl mx-auto px-8 pt-8 pb-20 space-y-8">
+      <div className="px-8 pt-8 pb-20 space-y-8">
         <div>
           <div className="mb-6 flex items-end justify-between">
             <div>
