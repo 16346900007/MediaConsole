@@ -22,6 +22,12 @@ button:disabled,
   cursor: not-allowed;
 }
 
+/* ===== 隐藏平台注入的「妙搭生成」悬浮角标（AppContainer Watermark） ===== */
+[data-custom-element='miaoda-watermark'],
+[data-custom-element='miaoda-watermark-mobile'] {
+  display: none !important;
+}
+
 /* ===== 右上角卷角状态标签（账号卡片） ===== */
 .ribbon-badge {
   position: absolute;

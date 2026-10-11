@@ -13,6 +13,14 @@ import { Toaster } from '@client/src/components/ui/sonner';
 
 const CLIENT_BASE_PATH = process.env.CLIENT_BASE_PATH || '/';
 
+// 关闭 client-toolkit AppContainer 注入的「妙搭生成」悬浮角标（官方关闭机制：
+// Watermark 组件读取 localStorage miaoda-creatByMiaodo-has-closed-{appId}，本地 appId 为空）
+try {
+  window.localStorage.setItem('miaoda-creatByMiaodo-has-closed-', 'true');
+} catch {
+  /* 忽略 */
+}
+
 const MainApp = () => {
   return (
     <BrowserRouter basename={CLIENT_BASE_PATH}>
