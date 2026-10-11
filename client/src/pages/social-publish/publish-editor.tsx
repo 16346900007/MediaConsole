@@ -1261,7 +1261,7 @@ function AccountPickerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl rounded-none border-[#E2E8F0] p-0 shadow-md">
+      <DialogContent className="max-w-4xl gap-0 rounded-none border-[#E2E8F0] p-0 shadow-md">
         <DialogHeader className="border-b border-[#E2E8F0] p-6 pb-4">
           <DialogTitle className="text-base font-black text-[#1A1A1A]">
             选择账号
@@ -1271,12 +1271,12 @@ function AccountPickerDialog({
           </p>
         </DialogHeader>
 
-        <div className="flex">
-          {/* 左侧分组侧边筛选（样式对齐账号页 GroupSidebar） */}
+        <div className="flex max-h-[70vh]">
+          {/* 左侧分组侧边筛选（样式对齐账号页 GroupSidebar，上下撑满弹窗高度） */}
           {groups.length > 0 && (
-            <aside className="w-56 shrink-0 border-r border-[#E2E8F0] bg-white py-4">
+            <aside className="flex w-56 shrink-0 flex-col self-stretch border-r border-[#E2E8F0] bg-white py-4">
               <p className="px-4 text-sm font-bold text-[#1A1A1A]">分组</p>
-              <nav className="mt-2 flex flex-col gap-0.5 overflow-y-auto px-2">
+              <nav className="mt-2 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2">
                 <button
                   type="button"
                   onClick={() => setGroupFilter(null)}
@@ -1323,7 +1323,7 @@ function AccountPickerDialog({
           )}
 
           {/* 右侧：平台筛选 + 账号列表 */}
-          <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
             {/* 平台筛选 */}
             <div className="flex flex-wrap gap-2.5 border-b border-[#E2E8F0] px-6 py-3">
               <button
@@ -1353,7 +1353,7 @@ function AccountPickerDialog({
             </div>
 
             {/* 账号勾选列表 */}
-            <div className="max-h-[52vh] min-h-[260px] overflow-y-auto px-6 py-4">
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
               {byPlatform.size === 0 ? (
                 <p className="py-8 text-center text-[12px] font-medium text-[#94A3B8]">
                   无符合条件的账号
