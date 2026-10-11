@@ -294,6 +294,17 @@ export interface GeoPlace {
   typecode: string;
 }
 
+/** B站投稿分区（无头模式获取，一级+二级） */
+export interface BiliPartitionChild {
+  tid: number;
+  name: string;
+}
+export interface BiliPartition {
+  tid: number;
+  name: string;
+  children: BiliPartitionChild[];
+}
+
 /** 批量移动账号到分组 */
 export interface AccountBatchMoveRequest {
   ids: string[];

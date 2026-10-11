@@ -4,6 +4,7 @@ import type {
   AccountGroup,
   AuthStartRequest,
   AuthStartResponse,
+  BiliPartition,
   ContentListResponse,
   CreateAccountRequest,
   CreateContentRequest,
@@ -107,6 +108,15 @@ export async function deleteTopicTag(id: string): Promise<void> {
     url: `/api/social/topics/tags/${id}`,
     method: 'DELETE',
   });
+}
+
+/** B站投稿分区树（无头模式获取，12h 缓存） */
+export async function fetchBilibiliPartitions(): Promise<BiliPartition[]> {
+  const resp = await axiosForBackend<BiliPartition[]>({
+    url: '/api/social/publish/bilibili-partitions',
+    method: 'GET',
+  });
+  return resp.data ?? [];
 }
 
 /* ---------- 位置联想（发布页，高德） ---------- */

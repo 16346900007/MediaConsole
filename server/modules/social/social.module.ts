@@ -22,6 +22,7 @@ import { TopicsController } from './topics.controller';
 import { TopicsService } from './topics.service';
 import { GeoController } from './geo.controller';
 import { GeoService } from './geo.service';
+import { BilibiliMetaService } from './publish/bilibili-meta.service';
 
 @Module({
   imports: [],
@@ -51,6 +52,7 @@ import { GeoService } from './geo.service';
     PublishService,
     TopicsService,
     GeoService,
+    BilibiliMetaService,
   ],
 })
 export class SocialModule {}

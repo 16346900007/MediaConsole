@@ -2,10 +2,23 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestj
 import { NeedLogin } from '@lark-apaas/fullstack-nestjs-core';
 import type { PublishTask, PublishTaskInput } from '@shared/api.interface';
 import { PublishService } from './publish.service';
+import {
+  BilibiliMetaService,
+  type BiliPartition,
+} from './publish/bilibili-meta.service';
 
 @Controller('api/social/publish')
 export class PublishController {
-  constructor(private readonly publishService: PublishService) {}
+  constructor(
+    private readonly publishService: PublishService,
+    private readonly bilibiliMeta: BilibiliMetaService,
+  ) {}
+
+  /** B站投稿分区树（无头模式实时获取，12h 缓存） */
+  @Get('bilibili-partitions')
+  async bilibiliPartitions(): Promise<BiliPartition[]> {
+    return this.bilibiliMeta.getPartitions();
+  }
 
   @Get('tasks')
   async listTasks(

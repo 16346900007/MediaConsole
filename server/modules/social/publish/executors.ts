@@ -163,11 +163,63 @@ async function publishBilibili(ctx: PublishContext): Promise<PublishResult> {
     if ((await descInput.count()) > 0) await descInput.fill(task.body).catch(() => {});
   }
 
-  // 5. 标签（B站投稿标签为必填，英文逗号分隔）
-  if (task.topic) {
+  const biliPf = (task.platformFields?.bilibili ?? {}) as Record<string, unknown>;
+
+  // 5. 分区（必填；B站投稿为单选分类下拉，联想输入分区名后点选候选）
+  const partitionName = String(
+    biliPf.partitionName || biliPf.subPartitionName || '',
+  );
+  const pInputSel =
+    'input[placeholder*="分区"], input[placeholder*="搜索"], input[placeholder*="请选择"], input[placeholder*="选择"], input[aria-label*="分区"]';
+  const pickOption = async (name: string): Promise<boolean> => {
+    const opt = page
+      .locator('li, div, span, [role="option"]', { hasText: name })
+      .filter({ has: page.locator('text=' + name) })
+      .last();
+    if ((await opt.count()) > 0) {
+      await opt.click().catch(() => {});
+      await page.waitForTimeout(900);
+      return true;
+    }
+    return false;
+  };
+  if (!partitionName) {
+    throw new Error('B站投稿需选择分区（请在发布页选择分区）');
+  }
+  const pInput = page.locator(pInputSel).first();
+  if ((await pInput.count()) === 0) throw new Error('未找到 B站分区输入框');
+  await pInput.click().catch(() => {});
+  await page.waitForTimeout(600);
+  await pInput.fill(partitionName);
+  await page.waitForTimeout(1600);
+  await pickOption(partitionName);
+
+  // 6. 创作声明（必填；下拉选择对应声明项）
+  const declare = String(biliPf.declare ?? '');
+  const declareMap: Record<string, string> = {
+    '1': '内容无需标注',
+    '2': '含AI生成内容',
+    '3': '含虚构演绎内容',
+    '4': '内容含营销信息',
+    '5': '个人观点，仅供参考',
+    '6': '内容为转载',
+  };
+  if (!declareMap[declare]) {
+    throw new Error('B站投稿需选择创作声明（请在发布页选择创作声明）');
+  }
+  const declSel = page.locator('.bcc-select-input-inner, select, [class*="select"]').nth(1);
+  if ((await declSel.count()) > 0) {
+    await declSel.click().catch(() => {});
+    await page.waitForTimeout(800);
+    await pickOption(declareMap[declare]);
+  }
+
+  // 7. 标签（B站投稿标签为必填，英文逗号分隔；标签=话题，自动取话题值）
+  const tagsText = String(biliPf.tag || task.topic || '');
+  if (tagsText) {
     const tagInput = page.locator('input[placeholder*="标签"]').first();
     if ((await tagInput.count()) > 0) {
-      const tags = task.topic
+      const tags = tagsText
         .split(/[#,\s]+/)
         .filter(Boolean)
         .slice(0, 5)
@@ -176,7 +228,7 @@ async function publishBilibili(ctx: PublishContext): Promise<PublishResult> {
     }
   }
 
-  // 6. 发布
+  // 8. 发布
   const submit = page.locator('button', { hasText: /立即投稿|发布/ }).first();
   if ((await submit.count()) === 0) throw new Error('未找到发布按钮');
   await submit.click();

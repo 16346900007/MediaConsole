@@ -64,12 +64,16 @@ import { resolveErrorMessage } from '../social-analytics/helpers';
 import PublishTypeDialog from './publish-type-dialog';
 import TopicLibraryDialog from './topic-library-dialog';
 import LocationInput from './location-input';
+import BiliPartitionPicker, {
+  type BiliPartitionValue,
+} from './bili-partition-picker';
 
 /** 平台特有字段定义（编辑页按选中平台展示，存 platformFields） */
 interface ExtraField {
   key: string;
   label: string;
-  type: 'text' | 'select';
+  type: 'text' | 'select' | 'cascader';
+  required?: boolean;
   options?: { value: string; label: string }[];
 }
 
@@ -86,14 +90,20 @@ interface MediaUploadItem {
 
 const PLATFORM_EXTRA_FIELDS: Record<string, ExtraField[]> = {
   bilibili: [
-    { key: 'tid', label: '分区ID', type: 'text' },
+    { key: 'tid', label: '分区', type: 'cascader', required: true },
     {
-      key: 'copyright',
-      label: '自制/转载',
+      key: 'declare',
+      label: '创作声明',
       type: 'select',
+      required: true,
       options: [
-        { value: '1', label: '原创' },
-        { value: '2', label: '转载' },
+        { value: '', label: '请选择' },
+        { value: '1', label: '内容无需标注' },
+        { value: '2', label: '含AI生成内容' },
+        { value: '3', label: '含虚构演绎内容' },
+        { value: '4', label: '内容含营销信息' },
+        { value: '5', label: '个人观点，仅供参考' },
+        { value: '6', label: '内容为转载' },
       ],
     },
   ],
@@ -119,6 +129,20 @@ const PLATFORM_EXTRA_FIELDS: Record<string, ExtraField[]> = {
     },
   ],
   kuaishou: [{ key: 'category', label: '分类', type: 'text' }],
+  weibo: [
+    {
+      key: 'declare',
+      label: '内容声明',
+      type: 'select',
+      options: [
+        { value: '', label: '无' },
+        { value: '1', label: '内容为自主创作' },
+        { value: '2', label: '内容为转载' },
+        { value: '3', label: '内容由AI生成' },
+        { value: '4', label: '内容为虚构演绎' },
+      ],
+    },
+  ],
   shipinhao: [],
 };
 
@@ -405,6 +429,12 @@ export default function PublishEditor() {
     if (targets.length === 0) {
       return '请至少选择一个发布账号';
     }
+    if (!title.trim()) {
+      return '请填写标题';
+    }
+    if (topics.length === 0) {
+      return '请至少添加 1 个话题';
+    }
     const doneMediaCount = mediaItems.filter(
       (it: MediaUploadItem): boolean => it.status === 'done' && !!it.fileKey,
     ).length;
@@ -416,6 +446,16 @@ export default function PublishEditor() {
     }
     if (publishType === 'article' && !body.trim()) {
       return '请填写文章正文';
+    }
+    // B站：分区 + 创作声明必填
+    if (targets.some((t) => t.platform === 'bilibili')) {
+      const bili = (platformFields.bilibili ?? {}) as Record<string, unknown>;
+      if (!bili.tid) {
+        return 'B站分区为必填项';
+      }
+      if (!String(bili.declare ?? '')) {
+        return 'B站创作声明为必填项';
+      }
     }
     return null;
   };
@@ -902,7 +942,7 @@ export default function PublishEditor() {
           </p>
         </div>
         <div className="grid grid-cols-1 gap-4">
-          <Field label="标题" unsupported={unsupportedOf('title')}>
+          <Field label="标题" unsupported={unsupportedOf('title')} required>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -910,7 +950,7 @@ export default function PublishEditor() {
               className="w-full rounded-none border border-[#E2E8F0] bg-white px-3 py-2 text-sm outline-none focus:border-[#0033A0]"
             />
           </Field>
-          <Field label="话题" unsupported={unsupportedOf('topic')}>
+          <Field label="话题" unsupported={unsupportedOf('topic')} required>
             <div className="flex items-start gap-2">
               <div className="min-w-0 flex-1">
                 <TopicCapsuleInput
@@ -968,8 +1008,33 @@ export default function PublishEditor() {
           <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
             {selectedPlatforms.map((platform) =>
               (extraFields[platform] ?? []).map((f) => (
-                <Field key={`${platform}-${f.key}`} label={`${f.label}（${PLATFORM_MAP[platform]?.name ?? platform}）`}>
-                  {f.type === 'select' ? (
+                <Field key={`${platform}-${f.key}`} label={`${f.label}（${PLATFORM_MAP[platform]?.name ?? platform}）`} required={f.required}>
+                  {f.type === 'cascader' ? (
+                    <BiliPartitionPicker
+                      value={
+                        platformFields[platform]?.tid
+                          ? {
+                              tid: Number(platformFields[platform].tid),
+                              partitionName:
+                                String(platformFields[platform].partitionName ?? ''),
+                              subPartitionName:
+                                String(platformFields[platform].subPartitionName ?? ''),
+                            }
+                          : undefined
+                      }
+                      onChange={(v: BiliPartitionValue | null) => {
+                        if (!v) {
+                          patchPlatformField(platform, 'tid', undefined);
+                          patchPlatformField(platform, 'partitionName', undefined);
+                          patchPlatformField(platform, 'subPartitionName', undefined);
+                          return;
+                        }
+                        patchPlatformField(platform, 'tid', v.tid);
+                        patchPlatformField(platform, 'partitionName', v.partitionName);
+                        patchPlatformField(platform, 'subPartitionName', v.subPartitionName);
+                      }}
+                    />
+                  ) : f.type === 'select' ? (
                     <select
                       value={platformExtraValue(platform, f.key)}
                       onChange={(e) => patchPlatformField(platform, f.key, e.target.value)}
@@ -1117,15 +1182,18 @@ export default function PublishEditor() {
 function Field({
   label,
   unsupported,
+  required,
   children,
 }: {
   label: string;
   unsupported?: string;
+  required?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <div>
       <p className="mb-2 text-[10px] font-black uppercase tracking-tight text-[#94A3B8]">
+        {required ? <span className="mr-0.5 text-[#EF4444]">*</span> : null}
         {label}
       </p>
       {children}
