@@ -13,6 +13,7 @@ import {
   Search,
   Trash2,
   Upload,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -73,6 +74,23 @@ const SocialMaterials: FC = () => {
   const [moveOpen, setMoveOpen] = useState(false);
   const [targetGroup, setTargetGroup] = useState('');
   const [moving, setMoving] = useState(false);
+  const [preview, setPreview] = useState<MaterialItem | null>(null);
+  const [previewList, setPreviewList] = useState<MaterialItem[]>([]);
+
+  const openPreview = (item: MaterialItem): void => {
+    // 同类型素材组成预览列表，便于左右切换
+    const list = materials.filter((m: MaterialItem): boolean => m.type === item.type);
+    setPreviewList(list);
+    setPreview(item);
+  };
+
+  const movePreview = (dir: 1 | -1): void => {
+    if (!preview) return;
+    const idx = previewList.findIndex((m: MaterialItem): boolean => m.id === preview.id);
+    if (idx < 0) return;
+    const next = previewList[(idx + dir + previewList.length) % previewList.length];
+    setPreview(next);
+  };
 
   const loadData = async (): Promise<void> => {
     setLoading(true);
@@ -346,11 +364,11 @@ const SocialMaterials: FC = () => {
                   onClick={
                     batchMode
                       ? (): void => handleToggleSelect(item.id)
-                      : undefined
+                      : (): void => openPreview(item)
                   }
                   className={`group relative overflow-hidden rounded-none border border-[#E2E8F0] bg-white transition-colors hover:border-[#0033A0] ${
                     selectedIds.has(item.id) ? 'border-[#0033A0]' : ''
-                  } ${batchMode ? 'cursor-pointer' : ''}`}
+                  } ${batchMode ? 'cursor-pointer' : 'cursor-pointer'}`}
                 >
                   {batchMode && (
                     <span
@@ -505,6 +523,78 @@ const SocialMaterials: FC = () => {
             >
               {moving ? '移动中...' : '确定'}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 素材预览弹窗：图片放大 / 视频内嵌播放，同类型素材支持左右切换 */}
+      <Dialog open={preview !== null} onOpenChange={(o) => { if (!o) setPreview(null); }}>
+        <DialogContent
+          className="w-[860px] max-w-[92vw] overflow-hidden rounded-none border-t-[3px] border-t-[#0033A0] p-0 shadow-md"
+          showCloseButton={false}
+        >
+          <div className="relative flex min-h-[420px] items-center justify-center bg-[#0F172A] p-6">
+            {preview?.type === 'image' ? (
+              <img
+                src={preview.fileUrl}
+                alt={preview.name}
+                className="max-h-[65vh] max-w-full object-contain"
+              />
+            ) : (
+              <video
+                key={preview?.id}
+                src={preview?.fileUrl}
+                controls
+                autoPlay
+                className="max-h-[65vh] max-w-full"
+              />
+            )}
+
+            {previewList.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => movePreview(-1)}
+                  className="absolute left-3 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white transition-colors hover:bg-black/60"
+                  aria-label="上一个"
+                >
+                  <ChevronLeft className="size-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => movePreview(1)}
+                  className="absolute right-3 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white transition-colors hover:bg-black/60"
+                  aria-label="下一个"
+                >
+                  <ChevronRight className="size-5" />
+                </button>
+              </>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setPreview(null)}
+              className="absolute right-3 top-3 flex size-8 items-center justify-center rounded-full bg-black/40 text-white transition-colors hover:bg-black/60"
+              aria-label="关闭预览"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+          <div className="flex items-center justify-between gap-4 border-t border-[#E2E8F0] px-6 py-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold text-[#1A1A1A]">
+                {preview?.name}
+              </p>
+              <p className="mt-0.5 text-[12px] font-medium text-[#94A3B8]">
+                {preview?.groupName || '未分组'}
+              </p>
+            </div>
+            {previewList.length > 1 && (
+              <span className="shrink-0 text-[12px] font-bold text-[#94A3B8]">
+                {previewList.findIndex((m) => m.id === preview?.id) + 1} /{' '}
+                {previewList.length}
+              </span>
+            )}
           </div>
         </DialogContent>
       </Dialog>
