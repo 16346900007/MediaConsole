@@ -337,7 +337,7 @@ export default function PublishEditor() {
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-8 pt-8 pb-20 space-y-8">
+      <div className="px-8 pt-8 pb-20 space-y-8">
         <Skeleton className="h-[72px] w-full rounded-none" />
         <Skeleton className="h-[400px] w-full rounded-none" />
       </div>
@@ -359,7 +359,7 @@ export default function PublishEditor() {
   const selectedPlatforms = [...new Set(targets.map((t) => t.platform))];
 
   return (
-    <div className="max-w-7xl mx-auto px-8 pt-8 pb-20 space-y-8">
+    <div className="px-8 pt-8 pb-20 space-y-8">
       <button
         type="button"
         onClick={() => navigate('/publish')}

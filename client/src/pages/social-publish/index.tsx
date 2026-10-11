@@ -63,7 +63,7 @@ export default function SocialPublish() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-8 pt-8 pb-20 space-y-8">
+    <div className="px-8 pt-8 pb-20 space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="mb-1 text-[12px] font-black uppercase tracking-[0.15em] text-[#0033A0]">
@@ -94,19 +94,19 @@ export default function SocialPublish() {
         />
       )}
 
-      {/* 状态筛选 */}
+      {/* 状态筛选（账号页同款筛选样式：实心蓝底、可再次点击取消） */}
       <div className="flex flex-wrap gap-2">
         {['', 'draft', 'scheduled', 'publishing', 'published', 'partial_failed', 'failed'].map(
           (s) => (
             <button
               key={s}
               type="button"
-              onClick={() => setStatusFilter(s)}
+              onClick={() => setStatusFilter(statusFilter === s ? '' : s)}
               className={cn(
-                'rounded-none px-3 py-1.5 text-[12px] font-bold transition-colors',
+                'flex items-center gap-1.5 rounded-none border px-3 py-1.5 text-sm font-medium transition-colors',
                 statusFilter === s
-                  ? 'bg-[#0033A0] text-white'
-                  : 'bg-white text-[#475569] hover:bg-slate-100 border border-[#E2E8F0]',
+                  ? 'border-transparent bg-[#0033A0] text-white'
+                  : 'border-[#E2E8F0] bg-white text-[#475569] hover:bg-slate-50',
               )}
             >
               {s === '' ? '全部' : STATUS_LABELS[s]}
