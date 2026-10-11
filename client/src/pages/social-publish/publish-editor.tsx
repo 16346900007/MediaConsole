@@ -4,6 +4,7 @@ import { useDropzone } from 'react-dropzone';
 import { toast } from 'sonner';
 import {
   ArrowLeft,
+  Bookmark,
   CalendarClock,
   ImagePlus,
   Plus,
@@ -61,6 +62,7 @@ import {
 import { cn } from '@/lib/utils';
 import { resolveErrorMessage } from '../social-analytics/helpers';
 import PublishTypeDialog from './publish-type-dialog';
+import TopicLibraryDialog from './topic-library-dialog';
 
 /** 平台特有字段定义（编辑页按选中平台展示，存 platformFields） */
 interface ExtraField {
@@ -136,6 +138,8 @@ export default function PublishEditor() {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [topics, setTopics] = useState<string[]>([]);
+  /** 常用话题弹窗 */
+  const [topicLibOpen, setTopicLibOpen] = useState(false);
   const [location, setLocation] = useState('');
   const [visibility, setVisibility] = useState<'public' | 'private'>('public');
   const [coverFileKey, setCoverFileKey] = useState<string | null>(null);
@@ -890,11 +894,24 @@ export default function PublishEditor() {
             />
           </Field>
           <Field label="话题" unsupported={unsupportedOf('topic')}>
-            <TopicCapsuleInput
-              value={topics}
-              onChange={setTopics}
-              placeholder="#话题1 输入后回车生成标签，可删除"
-            />
+            <div className="flex items-start gap-2">
+              <div className="min-w-0 flex-1">
+                <TopicCapsuleInput
+                  value={topics}
+                  onChange={setTopics}
+                  placeholder="#话题1 输入后回车生成标签，可删除"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setTopicLibOpen(true)}
+                className="flex shrink-0 items-center gap-1.5 rounded-none border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2 text-sm font-bold text-[#0033A0] transition-colors hover:border-[#0033A0] hover:bg-[#EFF4FF]"
+                title="常用话题"
+              >
+                <Bookmark className="size-4" />
+                常用话题
+              </button>
+            </div>
           </Field>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Field label="位置" unsupported={unsupportedOf('location')}>
@@ -1000,6 +1017,14 @@ export default function PublishEditor() {
           发布完成后临时文件自动清除，不占用系统存储；失败的平台账号保留文件可重试。
         </p>
       </section>
+
+      {/* 常用话题弹窗：分组管理 + 单选/整组全选应用 */}
+      <TopicLibraryDialog
+        open={topicLibOpen}
+        onClose={() => setTopicLibOpen(false)}
+        value={topics}
+        onChange={setTopics}
+      />
 
       {/* 小窗预览（视频/图片/封面） */}
       <MediaPreview

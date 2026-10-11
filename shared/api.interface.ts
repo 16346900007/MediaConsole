@@ -268,6 +268,17 @@ export interface AccountGroup {
   count: number;
 }
 
+/** 常用话题分组（发布页话题库） */
+export interface TopicGroup {
+  id: string;
+  name: string;
+  tags: string[];
+}
+
+export interface TopicLibrary {
+  groups: TopicGroup[];
+}
+
 /** 批量移动账号到分组 */
 export interface AccountBatchMoveRequest {
   ids: string[];

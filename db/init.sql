@@ -195,6 +195,57 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_account_groups_name
   ON social_account_groups (name);
 
 -- ------------------------------------------------------------
+-- 5.2 常用话题分组表（发布页话题库）
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS social_topic_groups (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name varchar(100) NOT NULL,
+  _created_at timestamptz(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  _created_by user_profile NULL DEFAULT (
+    CASE
+      WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL::user_profile
+      ELSE (concat('(', current_setting('app.user_id'::text, true), ')'))::user_profile
+    END
+  ),
+  _updated_at timestamptz(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  _updated_by user_profile NULL DEFAULT (
+    CASE
+      WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL::user_profile
+      ELSE (concat('(', current_setting('app.user_id'::text, true), ')'))::user_profile
+    END
+  )
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_topic_groups_name
+  ON social_topic_groups (name);
+
+-- ------------------------------------------------------------
+-- 5.3 常用话题标签表（归属分组，级联删除）
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS social_topic_tags (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  group_id uuid NOT NULL REFERENCES social_topic_groups(id) ON DELETE CASCADE,
+  name varchar(100) NOT NULL,
+  _created_at timestamptz(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  _created_by user_profile NULL DEFAULT (
+    CASE
+      WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL::user_profile
+      ELSE (concat('(', current_setting('app.user_id'::text, true), ')'))::user_profile
+    END
+  ),
+  _updated_at timestamptz(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  _updated_by user_profile NULL DEFAULT (
+    CASE
+      WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL::user_profile
+      ELSE (concat('(', current_setting('app.user_id'::text, true), ')'))::user_profile
+    END
+  )
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_topic_tags_group_name
+  ON social_topic_tags (group_id, name);
+
+-- ------------------------------------------------------------
 -- 6. 素材表
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS social_materials (

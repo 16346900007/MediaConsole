@@ -27,6 +27,8 @@ import type {
   UpdateContentRequest,
   UpdateMaterialRequest,
   MaterialUsageResponse,
+  TopicGroup,
+  TopicLibrary,
 } from '@shared/api.interface';
 
 export async function listAccounts(params?: {
@@ -49,6 +51,61 @@ export async function listAccountGroups(): Promise<AccountGroup[]> {
     method: 'GET',
   });
   return response.data;
+}
+
+/* ---------- 常用话题库（发布页） ---------- */
+
+/** 话题库全量（分组 + 组内标签） */
+export async function listTopicLibrary(): Promise<TopicLibrary> {
+  const response = await axiosForBackend({
+    url: '/api/social/topics',
+    method: 'GET',
+  });
+  return response.data;
+}
+
+/** 新建话题分组 */
+export async function createTopicGroup(name: string): Promise<TopicGroup> {
+  const response = await axiosForBackend({
+    url: '/api/social/topics/groups',
+    method: 'POST',
+    data: { name },
+  });
+  return response.data;
+}
+
+/** 重命名话题分组 */
+export async function renameTopicGroup(id: string, name: string): Promise<void> {
+  await axiosForBackend({
+    url: `/api/social/topics/groups/${id}`,
+    method: 'PATCH',
+    data: { name },
+  });
+}
+
+/** 删除话题分组（组内标签级联删除） */
+export async function deleteTopicGroup(id: string): Promise<void> {
+  await axiosForBackend({
+    url: `/api/social/topics/groups/${id}`,
+    method: 'DELETE',
+  });
+}
+
+/** 分组内批量添加话题 */
+export async function addTopicTags(groupId: string, names: string[]): Promise<void> {
+  await axiosForBackend({
+    url: `/api/social/topics/groups/${groupId}/tags`,
+    method: 'POST',
+    data: { names },
+  });
+}
+
+/** 删除单个话题 */
+export async function deleteTopicTag(id: string): Promise<void> {
+  await axiosForBackend({
+    url: `/api/social/topics/tags/${id}`,
+    method: 'DELETE',
+  });
 }
 
 /** 新建账号分组 */

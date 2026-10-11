@@ -18,6 +18,8 @@ import { FilesController } from './files.controller';
 import { FilesService } from './files.service';
 import { PublishController } from './publish.controller';
 import { PublishService } from './publish.service';
+import { TopicsController } from './topics.controller';
+import { TopicsService } from './topics.service';
 
 @Module({
   imports: [],
@@ -32,6 +34,7 @@ import { PublishService } from './publish.service';
     DataController,
     FilesController,
     PublishController,
+    TopicsController,
   ],
   providers: [
     AccountsService,
@@ -43,6 +46,7 @@ import { PublishService } from './publish.service';
     DataService,
     FilesService,
     PublishService,
+    TopicsService,
   ],
 })
 export class SocialModule {}
