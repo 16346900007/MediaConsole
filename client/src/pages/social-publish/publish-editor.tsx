@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
-import Lightbox from 'yet-another-react-lightbox';
-import Video from 'yet-another-react-lightbox/plugins/video';
-import 'yet-another-react-lightbox/styles.css';
 import { ArrowLeft, CalendarClock, FileVideo, ImagePlus, Save, Send, Trash2, Upload } from 'lucide-react';
 import type {
   PublishTask,
@@ -809,26 +806,23 @@ export default function PublishEditor() {
         </p>
       </section>
 
-      {/* 弹窗预览（视频/图片/封面） */}
-      <Lightbox
-        open={preview !== null}
-        close={() => setPreview(null)}
-        plugins={[Video]}
-        index={preview?.index ?? 0}
-        slides={
-          preview
-            ? preview.kind === 'video'
-              ? mediaFileKeys.map((key) => ({
-                  type: 'video' as const,
-                  sources: [{ src: `/api/social/files/${key}` }],
-                }))
-              : (preview.kind === 'cover'
-                  ? coverFileKey
-                    ? [coverFileKey]
-                    : []
-                  : mediaFileKeys
-                ).map((key) => ({ src: `/api/social/files/${key}` }))
-            : []
+      {/* 小窗预览（视频/图片/封面） */}
+      <MediaPreview
+        preview={preview}
+        keys={
+          preview?.kind === 'cover'
+            ? coverFileKey
+              ? [coverFileKey]
+              : []
+            : mediaFileKeys
+        }
+        names={mediaNames}
+        onClose={() => setPreview(null)}
+        onPrev={() =>
+          setPreview((p) => (p ? { ...p, index: Math.max(0, p.index - 1) } : p))
+        }
+        onNext={(len) =>
+          setPreview((p) => (p ? { ...p, index: Math.min(len - 1, p.index + 1) } : p))
         }
       />
 
@@ -892,8 +886,103 @@ function Field({
   );
 }
 
-/** 视频缩略图：加载视频后在浏览器内 seek 到起始帧并截取一帧显示 */
-function VideoThumbnail({ src, className }: { src: string; className?: string }) {
+/** 小窗预览弹窗：视频/图片/封面统一，固定宽度居中，不占满屏 */
+function MediaPreview({
+  preview,
+  keys,
+  names,
+  onClose,
+  onPrev,
+  onNext,
+}: {
+  preview: { kind: 'video' | 'image' | 'cover'; index: number } | null;
+  keys: string[];
+  names: string[];
+  onClose: () => void;
+  onPrev: () => void;
+  onNext: (len: number) => void;
+}) {
+  if (!preview || keys.length === 0) return null;
+  const idx = Math.min(preview.index, keys.length - 1);
+  const src = `/api/social/files/${keys[idx]}`;
+  const isVideo = preview.kind === 'video';
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6"
+      onClick={onClose}
+    >
+      <div
+        className="w-[720px] max-w-[92vw] rounded-none border border-[#E2E8F0] bg-white shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-3 border-b border-[#E2E8F0] px-4 py-2.5">
+          <p className="truncate text-[12px] font-bold text-[#1A1A1A]">
+            {names[idx] ?? keys[idx]}
+          </p>
+          <div className="flex shrink-0 items-center gap-1">
+            {keys.length > 1 && (
+              <span className="text-[10px] font-bold text-[#94A3B8]">
+                {idx + 1}/{keys.length}
+              </span>
+            )}
+            <button
+              type="button"
+              className="flex size-6 items-center justify-center text-[#475569] transition-colors hover:bg-slate-100"
+              onClick={onClose}
+              title="关闭"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+        <div className="flex items-center gap-1 p-3">
+          {keys.length > 1 && (
+            <button
+              type="button"
+              className="flex size-8 shrink-0 items-center justify-center rounded-none border border-[#E2E8F0] text-[#0033A0] transition-colors hover:bg-[#EFF4FF] disabled:opacity-30"
+              disabled={idx === 0}
+              onClick={onPrev}
+              title="上一个"
+            >
+              ‹
+            </button>
+          )}
+          <div className="min-w-0 flex-1">
+            {isVideo ? (
+              <video
+                key={src}
+                src={src}
+                controls
+                autoPlay
+                className="aspect-video w-full rounded-none bg-black object-contain"
+              />
+            ) : (
+              <img
+                key={src}
+                src={src}
+                alt=""
+                className="mx-auto max-h-[60vh] w-auto max-w-full rounded-none object-contain"
+              />
+            )}
+          </div>
+          {keys.length > 1 && (
+            <button
+              type="button"
+              className="flex size-8 shrink-0 items-center justify-center rounded-none border border-[#E2E8F0] text-[#0033A0] transition-colors hover:bg-[#EFF4FF] disabled:opacity-30"
+              disabled={idx >= keys.length - 1}
+              onClick={() => onNext(keys.length)}
+              title="下一个"
+            >
+              ›
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** 视频缩略图：加载视频后在浏览器内 seek 到起始帧并截取一帧显示 */function VideoThumbnail({ src, className }: { src: string; className?: string }) {
   const [thumb, setThumb] = useState<string | null>(null);
 
   useEffect(() => {
