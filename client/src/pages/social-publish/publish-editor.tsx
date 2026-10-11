@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, CalendarClock, Save, Send, Trash2, Upload } from 'lucide-react';
+import { ArrowLeft, CalendarClock, FileVideo, ImagePlus, Save, Send, Trash2, Upload } from 'lucide-react';
 import type {
   PublishTask,
   PublishTaskInput,
@@ -102,6 +102,8 @@ export default function PublishEditor() {
   const [scheduleAt, setScheduleAt] = useState<string>('');
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [uploading, setUploading] = useState(false);
+  /** 拖拽悬停状态：'media' 主体文件框 / 'cover' 封面框 */
+  const [dragOver, setDragOver] = useState<'media' | 'cover' | null>(null);
 
   /* 加载已有发布单 */
   const load = useCallback(async () => {
@@ -194,16 +196,32 @@ export default function PublishEditor() {
   /* 文件上传 */
   const handleFiles = async (files: FileList | null, kind: 'media' | 'cover') => {
     if (!files?.length) return;
+    const list = Array.from(files);
+    // 类型校验（drop 不受 input accept 约束，需手动校验）
+    const allowed =
+      kind === 'cover'
+        ? IMAGE_ACCEPT
+        : publishType === 'image'
+          ? IMAGE_ACCEPT
+          : VIDEO_ACCEPT;
+    const bad = list.find((f) => {
+      const ext = f.name.toLowerCase().split('.').pop() ?? '';
+      return !allowed.includes(`.${ext}`) && !allowed.split(',').includes(f.type);
+    });
+    if (bad) {
+      setError(`不支持的文件类型：${bad.name}`);
+      return;
+    }
     setUploading(true);
     setError(null);
     try {
       if (kind === 'cover') {
-        const r = await uploadPublishFile(files[0]);
+        const r = await uploadPublishFile(list[0]);
         setCoverFileKey(r.fileKey);
       } else {
         const keys: string[] = [];
         const names: string[] = [];
-        for (const f of Array.from(files)) {
+        for (const f of list) {
           const r = await uploadPublishFile(f);
           keys.push(r.fileKey);
           names.push(f.name);
@@ -216,6 +234,18 @@ export default function PublishEditor() {
     } finally {
       setUploading(false);
     }
+  };
+
+  /* 拖拽上传事件 */
+  const handleDragOver = (kind: 'media' | 'cover') => (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(kind);
+  };
+  const handleDragLeave = () => setDragOver(null);
+  const handleDrop = (kind: 'media' | 'cover') => (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(null);
+    void handleFiles(e.dataTransfer.files, kind);
   };
 
   /* 保存/提交 */
@@ -342,98 +372,209 @@ export default function PublishEditor() {
         </div>
 
         {publishType === 'video' && (
-          <label className="flex h-[180px] cursor-pointer flex-col items-center justify-center gap-2 rounded-none border border-dashed border-[#E2E8F0] bg-[#F8FAFC] transition-colors hover:border-[#0033A0]">
-            <Upload className="size-8 text-[#94A3B8]" />
-            <span className="text-[12px] font-bold text-[#475569]">
-              {uploading ? '上传中…' : '点击选择视频文件（MP4/WebM/MOV）'}
-            </span>
+          <div
+            className={cn(
+              'relative flex min-h-[180px] cursor-pointer flex-col items-center justify-center gap-2 rounded-none border bg-[#F8FAFC] transition-colors',
+              dragOver === 'media'
+                ? 'border-2 border-[#0033A0] bg-[#EFF4FF]'
+                : 'border border-dashed border-[#E2E8F0] hover:border-[#0033A0]',
+            )}
+            onDragOver={handleDragOver('media')}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop('media')}
+            onClick={() => document.getElementById('publish-media-input')?.click()}
+          >
+            {mediaFileKeys.length > 0 ? (
+              <div className="flex w-full items-center justify-between gap-3 px-5 py-4">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <FileVideo className="size-5 shrink-0 text-[#0033A0]" />
+                  <div className="min-w-0">
+                    <p className="truncate text-[12px] font-bold text-[#1A1A1A]">
+                      {mediaNames[0] ?? mediaFileKeys[0]}
+                    </p>
+                    <p className="text-[10px] font-medium text-[#94A3B8]">
+                      {uploading ? '上传中…' : '可点击或拖拽替换'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="flex size-6 shrink-0 items-center justify-center rounded-none bg-[#FEF2F2] text-[#EF4444] transition-colors hover:bg-[#EF4444] hover:text-white"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMediaFileKeys([]);
+                    setMediaNames([]);
+                  }}
+                  title="移除视频"
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              </div>
+            ) : (
+              <>
+                {uploading ? (
+                  <Upload className="size-8 animate-pulse text-[#0033A0]" />
+                ) : dragOver === 'media' ? (
+                  <Upload className="size-8 text-[#0033A0]" />
+                ) : (
+                  <Upload className="size-8 text-[#94A3B8]" />
+                )}
+                <span
+                  className={cn(
+                    'text-[12px] font-bold',
+                    dragOver === 'media' ? 'text-[#0033A0]' : 'text-[#475569]',
+                  )}
+                >
+                  {uploading
+                    ? '上传中…'
+                    : dragOver === 'media'
+                      ? '松开即上传'
+                      : '点击或拖拽视频文件到此处（MP4/WebM/MOV）'}
+                </span>
+              </>
+            )}
             <input
+              id="publish-media-input"
               type="file"
               accept={VIDEO_ACCEPT}
               className="hidden"
               onChange={(e) => void handleFiles(e.target.files, 'media')}
             />
-          </label>
+          </div>
         )}
         {publishType === 'image' && (
-          <label className="flex h-[120px] cursor-pointer flex-col items-center justify-center gap-2 rounded-none border border-dashed border-[#E2E8F0] bg-[#F8FAFC] transition-colors hover:border-[#0033A0]">
-            <Upload className="size-7 text-[#94A3B8]" />
-            <span className="text-[12px] font-bold text-[#475569]">
-              {uploading ? '上传中…' : '点击选择图片（可多选，JPG/PNG/WebP/GIF）'}
-            </span>
+          <div
+            className={cn(
+              'relative flex min-h-[120px] cursor-pointer flex-col items-center justify-center gap-2 rounded-none border bg-[#F8FAFC] transition-colors',
+              dragOver === 'media'
+                ? 'border-2 border-[#0033A0] bg-[#EFF4FF]'
+                : 'border border-dashed border-[#E2E8F0] hover:border-[#0033A0]',
+            )}
+            onDragOver={handleDragOver('media')}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop('media')}
+            onClick={() => document.getElementById('publish-media-input')?.click()}
+          >
+            {mediaFileKeys.length > 0 ? (
+              <div className="flex w-full flex-wrap items-center gap-3 p-4">
+                {mediaFileKeys.map((key, i) => (
+                  <div key={key} className="group relative">
+                    <img
+                      src={`/api/social/files/${key}`}
+                      alt=""
+                      className="size-20 rounded-none border border-[#E2E8F0] object-cover"
+                    />
+                    <button
+                      type="button"
+                      className="absolute -top-1.5 -right-1.5 flex size-5 items-center justify-center rounded-full bg-[#EF4444] text-white shadow-sm transition-transform hover:scale-110"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMediaFileKeys((prev) => prev.filter((k) => k !== key));
+                        setMediaNames((prev) => prev.filter((_, idx) => idx !== i));
+                      }}
+                      title="移除图片"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                <div className="flex size-20 flex-col items-center justify-center gap-1 rounded-none border border-dashed border-[#94A3B8] text-[#94A3B8] transition-colors hover:border-[#0033A0] hover:text-[#0033A0]">
+                  <ImagePlus className="size-5" />
+                  <span className="text-[10px] font-bold">{uploading ? '上传中…' : '继续添加'}</span>
+                </div>
+              </div>
+            ) : (
+              <>
+                {uploading ? (
+                  <Upload className="size-7 animate-pulse text-[#0033A0]" />
+                ) : dragOver === 'media' ? (
+                  <Upload className="size-7 text-[#0033A0]" />
+                ) : (
+                  <Upload className="size-7 text-[#94A3B8]" />
+                )}
+                <span
+                  className={cn(
+                    'text-[12px] font-bold',
+                    dragOver === 'media' ? 'text-[#0033A0]' : 'text-[#475569]',
+                  )}
+                >
+                  {uploading
+                    ? '上传中…'
+                    : dragOver === 'media'
+                      ? '松开即上传'
+                      : '点击或拖拽图片到此处（可多选，JPG/PNG/WebP/GIF）'}
+                </span>
+              </>
+            )}
             <input
+              id="publish-media-input"
               type="file"
               accept={IMAGE_ACCEPT}
               multiple
               className="hidden"
               onChange={(e) => void handleFiles(e.target.files, 'media')}
             />
-          </label>
-        )}
-
-        {/* 已选主体文件 */}
-        {mediaFileKeys.length > 0 && (
-          <div className="mt-4">
-            {publishType === 'image' ? (
-              <div className="flex flex-wrap gap-3">
-                {mediaFileKeys.map((key, i) => (
-                  <div key={key} className="group relative">
-                    <img
-                      src={`/api/social/files/${key}`}
-                      alt=""
-                      className="size-20 rounded-none object-cover"
-                    />
-                    <button
-                      type="button"
-                      className="absolute -top-1.5 -right-1.5 hidden size-5 items-center justify-center rounded-full bg-[#EF4444] text-white group-hover:flex"
-                      onClick={() => {
-                        setMediaFileKeys((prev) => prev.filter((k) => k !== key));
-                        setMediaNames((prev) => prev.filter((_, idx) => idx !== i));
-                      }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex items-center justify-between rounded-none border border-[#E2E8F0] px-4 py-3">
-                <span className="text-[12px] font-medium text-[#475569]">
-                  {mediaNames[0] ?? mediaFileKeys[0]}
-                </span>
-                <button
-                  type="button"
-                  className="text-[12px] font-bold text-[#EF4444] hover:underline"
-                  onClick={() => {
-                    setMediaFileKeys([]);
-                    setMediaNames([]);
-                  }}
-                >
-                  移除
-                </button>
-              </div>
-            )}
           </div>
         )}
 
         {/* 封面 */}
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-[180px_1fr]">
-          <label className="flex h-[100px] cursor-pointer flex-col items-center justify-center gap-1 rounded-none border border-dashed border-[#E2E8F0] bg-[#F8FAFC] transition-colors hover:border-[#0033A0]">
+          <div
+            className={cn(
+              'relative flex h-[100px] cursor-pointer items-center justify-center rounded-none border bg-[#F8FAFC] transition-colors',
+              dragOver === 'cover'
+                ? 'border-2 border-[#0033A0] bg-[#EFF4FF]'
+                : 'border border-dashed border-[#E2E8F0] hover:border-[#0033A0]',
+            )}
+            onDragOver={handleDragOver('cover')}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop('cover')}
+            onClick={() => document.getElementById('publish-cover-input')?.click()}
+          >
             {coverFileKey ? (
-              <img src={`/api/social/files/${coverFileKey}`} alt="" className="h-full w-full object-cover" />
+              <>
+                <img
+                  src={`/api/social/files/${coverFileKey}`}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+                <button
+                  type="button"
+                  className="absolute top-1 right-1 flex size-5 items-center justify-center rounded-full bg-[#EF4444] text-white shadow-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCoverFileKey(null);
+                  }}
+                  title="移除封面"
+                >
+                  ✕
+                </button>
+              </>
             ) : (
               <>
-                <Upload className="size-5 text-[#94A3B8]" />
-                <span className="text-[10px] font-bold text-[#94A3B8]">封面</span>
+                {dragOver === 'cover' ? (
+                  <Upload className="size-5 text-[#0033A0]" />
+                ) : (
+                  <Upload className="size-5 text-[#94A3B8]" />
+                )}
+                <span
+                  className={cn(
+                    'text-[10px] font-bold',
+                    dragOver === 'cover' ? 'text-[#0033A0]' : 'text-[#94A3B8]',
+                  )}
+                >
+                  {dragOver === 'cover' ? '松开即上传' : '封面（点击或拖拽）'}
+                </span>
               </>
             )}
             <input
+              id="publish-cover-input"
               type="file"
               accept={IMAGE_ACCEPT}
               className="hidden"
               onChange={(e) => void handleFiles(e.target.files, 'cover')}
             />
-          </label>
+          </div>
           <div className="flex flex-col justify-center gap-1">
             <p className="text-[12px] font-bold text-[#1A1A1A]">设置封面</p>
             <p className="text-[10px] font-medium text-[#94A3B8]">
