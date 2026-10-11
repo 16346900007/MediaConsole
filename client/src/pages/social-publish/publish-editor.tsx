@@ -887,8 +887,15 @@ export default function PublishEditor() {
         onConfirm={(next) => setTargets(next)}
       />
 
-      {/* 底部固定操作栏 */}
-      <div className="sticky bottom-0 z-30 -mx-8 flex items-center justify-end gap-2 border-t border-[#E2E8F0] bg-white px-8 py-3 shadow-[0_-2px_8px_rgba(0,0,0,0.06)]">
+      {/* 底部操作栏：仅立即发布模式固定，定时发布时随页面流 */}
+      <div
+        className={cn(
+          '-mx-8 flex items-center justify-end gap-2 border-t border-[#E2E8F0] bg-white px-8 py-3',
+          scheduleEnabled
+            ? ''
+            : 'sticky bottom-0 z-30 shadow-[0_-2px_8px_rgba(0,0,0,0.06)]',
+        )}
+      >
         <Button
           type="button"
           variant="outline"
