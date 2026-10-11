@@ -49,6 +49,7 @@ import UploadMaterialDialog from './upload-dialog';
 import MaterialCardMenu from './material-card-menu';
 import { showConfirm } from '@lark-apaas/client-toolkit';
 import { Image } from '@client/src/components/ui/image';
+import VideoThumbnail from '@/components/VideoThumbnail';
 
 const TYPE_FILTERS: { value: 'all' | MaterialType; label: string }[] = [
   { value: 'all', label: '全部' },
@@ -379,9 +380,11 @@ const SocialMaterials: FC = () => {
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-[#1A1A1A]/5">
-                        <PlaySquare className="size-12 text-[#94A3B8]" />
-                      </div>
+                      <VideoThumbnail
+                        src={item.fileUrl}
+                        fallbackIconSize="size-12"
+                        className="h-full w-full rounded-none border-0 bg-[#F8FAFC]"
+                      />
                     )}
                   </div>
                   <div className="border-t border-[#E2E8F0] p-2">
@@ -473,7 +476,7 @@ const SocialMaterials: FC = () => {
             </DialogTitle>
           </DialogHeader>
           <Select value={targetGroup} onValueChange={setTargetGroup}>
-            <SelectTrigger className="h-9 rounded-none border-[#E2E8F0] text-sm">
+            <SelectTrigger className="h-9 w-full rounded-none border-[#E2E8F0] text-sm">
               <SelectValue placeholder="选择目标分组" />
             </SelectTrigger>
             <SelectContent className="rounded-none">

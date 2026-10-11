@@ -540,7 +540,7 @@ const SocialAccounts: FC = () => {
             </DialogTitle>
           </DialogHeader>
           <Select value={targetGroup} onValueChange={setTargetGroup}>
-            <SelectTrigger className="h-9 rounded-none border-[#E2E8F0] text-sm">
+            <SelectTrigger className="h-9 w-full rounded-none border-[#E2E8F0] text-sm">
               <SelectValue placeholder="选择目标分组" />
             </SelectTrigger>
             <SelectContent className="rounded-none">

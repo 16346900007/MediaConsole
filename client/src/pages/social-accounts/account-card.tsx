@@ -115,7 +115,7 @@ const AccountCard: FC<AccountCardProps> = ({
 
   return (
     <div
-      className={`relative flex items-center gap-4 rounded-none border-t-[3px] border-t-[#0033A0] bg-white p-6 shadow-md transition-colors ${
+      className={`relative flex items-start gap-4 rounded-none border-t-[3px] border-t-[#0033A0] bg-white p-6 shadow-md transition-colors ${
         batchMode ? 'cursor-pointer hover:border-[#0033A0]' : 'hover:bg-slate-50'
       } ${
         selected
