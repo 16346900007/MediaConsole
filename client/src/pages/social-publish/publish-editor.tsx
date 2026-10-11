@@ -32,6 +32,7 @@ import {
   getPublishTask,
   listAccountGroups,
   listAccounts,
+  quickAddTopicTags,
   submitPublishTask,
   updatePublishTask,
   uploadPublishFile,
@@ -1669,7 +1670,11 @@ function TopicCapsuleInput({
     const t = raw.trim().replace(/^#+/, '');
     if (!t) return;
     if (value.length >= 15) return;
-    onChange(value.includes(t) ? value : [...value, t]);
+    if (!value.includes(t)) {
+      onChange([...value, t]);
+      // 话题=标签通用适配：手动输入的话题同步入库（常用分组），失败静默不影响表单
+      void quickAddTopicTags([t]).catch(() => undefined);
+    }
     setDraft('');
   };
 

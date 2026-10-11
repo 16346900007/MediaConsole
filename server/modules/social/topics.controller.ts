@@ -53,6 +53,13 @@ export class TopicsController {
     return this.topicsService.addTags(id, Array.isArray(names) ? names : []);
   }
 
+  /** 快捷入库：发布表单输入的话题写入「常用」分组（自动创建），话题=标签通用适配 */
+  @NeedLogin()
+  @Post('quick-add')
+  quickAdd(@Body('names') names: string[]): Promise<TopicGroup> {
+    return this.topicsService.quickAdd(Array.isArray(names) ? names : []);
+  }
+
   @NeedLogin()
   @Delete('tags/:id')
   deleteTag(@Param('id') id: string): Promise<void> {

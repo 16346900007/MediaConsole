@@ -10,6 +10,16 @@ import {
 } from '@client/src/api/social';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { PLATFORM_LOGOS } from '@/utils/platform-logos';
 import { resolveErrorMessage } from '../social-analytics/helpers';
@@ -39,6 +49,9 @@ export default function SocialPublish() {
   const [statusFilter, setStatusFilter] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [showTypeDialog, setShowTypeDialog] = useState(false);
+  /** 待确认删除的发布单 */
+  const [confirmDelete, setConfirmDelete] = useState<PublishTask | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = async () => {
     setError(null);
@@ -54,11 +67,15 @@ export default function SocialPublish() {
   }, [statusFilter]);
 
   const handleDelete = async (id: string) => {
+    setDeleting(true);
     try {
       await deletePublishTask(id);
+      setConfirmDelete(null);
       void load();
     } catch (e) {
       setError(resolveErrorMessage(e));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -215,7 +232,7 @@ export default function SocialPublish() {
                             type="button"
                             variant="outline"
                             className="h-8 rounded-none px-3 text-[12px] font-medium text-[#EF4444] hover:bg-[#FEF2F2]"
-                            onClick={() => void handleDelete(task.id)}
+                            onClick={() => setConfirmDelete(task)}
                           >
                             <Trash2 className="size-3.5" />
                           </Button>
@@ -229,6 +246,35 @@ export default function SocialPublish() {
           </div>
         )}
       </section>
+
+      {/* 删除确认 */}
+      <AlertDialog
+        open={confirmDelete !== null}
+        onOpenChange={(o) => { if (!o) setConfirmDelete(null); }}
+      >
+        <AlertDialogContent className="w-[420px] rounded-none border-t-[3px] border-t-[#0033A0] p-6 shadow-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-lg font-bold text-[#1A1A1A]">
+              确认删除发布单？
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-[12px] font-medium text-[#94A3B8]">
+              「{confirmDelete?.title || '(无标题)'}」删除后不可恢复；若已发布到平台，平台侧内容不受影响。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-6 gap-2">
+            <AlertDialogCancel className="rounded-none border-[#E2E8F0] text-[#475569] hover:bg-slate-100">
+              取消
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              onClick={() => confirmDelete && void handleDelete(confirmDelete.id)}
+              className="rounded-none bg-[#EF4444] px-6 text-white hover:bg-[#DC2626]"
+            >
+              {deleting ? '删除中…' : '确认删除'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
