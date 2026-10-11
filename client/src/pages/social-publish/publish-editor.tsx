@@ -519,9 +519,11 @@ export default function PublishEditor() {
                   )}
                 >
                   {uploading
-                    ? uploadProgress != null
-                      ? `上传中 ${uploadProgress}%`
-                      : '上传中…'
+                    ? uploadProgress != null && uploadProgress >= 100
+                      ? '服务端存储中…'
+                      : uploadProgress != null
+                        ? `上传中 ${uploadProgress}%`
+                        : '上传中…'
                     : videoDrop.isDragActive
                       ? '松开即上传'
                       : '点击或拖拽视频文件到此处（最多 5 个，MP4/WebM/MOV）'}
@@ -577,7 +579,7 @@ export default function PublishEditor() {
                 ))}
                 <div className="flex size-20 flex-col items-center justify-center gap-1 rounded-none border border-dashed border-[#94A3B8] text-[#94A3B8] transition-colors hover:border-[#0033A0] hover:text-[#0033A0]">
                   <ImagePlus className="size-5" />
-                  <span className="text-[10px] font-bold">{uploading ? (uploadProgress != null ? `上传中 ${uploadProgress}%` : '上传中…') : '继续添加'}</span>
+                  <span className="text-[10px] font-bold">{uploading ? (uploadProgress != null && uploadProgress >= 100 ? '服务端存储中…' : uploadProgress != null ? `上传中 ${uploadProgress}%` : '上传中…') : '继续添加'}</span>
                 </div>
               </div>
             ) : (
@@ -596,9 +598,11 @@ export default function PublishEditor() {
                   )}
                 >
                   {uploading
-                    ? uploadProgress != null
-                      ? `上传中 ${uploadProgress}%`
-                      : '上传中…'
+                    ? uploadProgress != null && uploadProgress >= 100
+                      ? '服务端存储中…'
+                      : uploadProgress != null
+                        ? `上传中 ${uploadProgress}%`
+                        : '上传中…'
                     : imageDrop.isDragActive
                       ? '松开即上传'
                       : '点击或拖拽图片到此处（可多选，JPG/PNG/WebP/GIF）'}

@@ -522,6 +522,7 @@ export async function uploadPublishFile(
     method: 'POST',
     data: form,
     headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 180000, // MinIO 存储服务器吞吐慢时，大文件可能耗时数分钟
     onUploadProgress: (e) => {
       if (!onProgress || !e.total) return;
       onProgress(Math.round((e.loaded / e.total) * 100));
