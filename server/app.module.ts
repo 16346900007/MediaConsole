@@ -9,7 +9,9 @@ import { ViewModule } from './modules/view/view.module';
 @Module({
   imports: [
     // 平台 Module，提供平台能力
-    PlatformModule.forRoot(),
+    // enableCsrf: false —— 本地单机桌面工具（固定 local-dev-user 身份、无外部攻击面），
+    // 关闭 double-submit CSRF 校验，避免 WebView2 清理缓存后 cookie 丢失导致上传/读取 403。
+    PlatformModule.forRoot({ enableCsrf: false }),
     // ====== @route-section: business-modules START ======
     // Place all business modules here.Do NOT add fallback modules here.
     SocialModule,
