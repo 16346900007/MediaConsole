@@ -1199,6 +1199,7 @@ function AccountPickerDialog({
 }) {
   const [platformFilter, setPlatformFilter] = useState<string | null>(null);
   const [groupFilter, setGroupFilter] = useState<string | null>(null);
+  const [keyword, setKeyword] = useState('');
   const [draft, setDraft] = useState<string[]>([]);
 
   /* 打开时以当前 targets 初始化勾选 */
@@ -1207,6 +1208,7 @@ function AccountPickerDialog({
       setDraft(targets.map((t) => t.accountId));
       setPlatformFilter(null);
       setGroupFilter(null);
+      setKeyword('');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -1221,8 +1223,29 @@ function AccountPickerDialog({
     let list = accounts;
     if (platformFilter) list = list.filter((a) => a.platform === platformFilter);
     if (groupFilter) list = list.filter((a) => a.groupName === groupFilter);
+    const kw = keyword.trim().toLowerCase();
+    if (kw) {
+      list = list.filter(
+        (a) => (a.accountName ?? '').toLowerCase().includes(kw) || (a.accountId ?? '').toLowerCase().includes(kw),
+      );
+    }
     return list;
-  }, [accounts, platformFilter, groupFilter]);
+  }, [accounts, platformFilter, groupFilter, keyword]);
+
+  /* 当前过滤结果的全选状态 */
+  const allFilteredIds = useMemo(() => filtered.map((a) => a.id), [filtered]);
+  const allChecked =
+    allFilteredIds.length > 0 && allFilteredIds.every((id) => draft.includes(id));
+  const toggleSelectAll = (): void => {
+    setDraft((prev) => {
+      if (allChecked) {
+        return prev.filter((id) => !allFilteredIds.includes(id));
+      }
+      const set = new Set(prev);
+      for (const id of allFilteredIds) set.add(id);
+      return [...set];
+    });
+  };
 
   const byPlatform = useMemo(() => {
     const map = new Map<string, SocialAccount[]>();
@@ -1350,6 +1373,27 @@ function AccountPickerDialog({
                   {PLATFORM_MAP[p as keyof typeof PLATFORM_MAP]?.name ?? p}
                 </button>
               ))}
+            </div>
+
+            {/* 搜索 + 全选 */}
+            <div className="flex items-center gap-3 border-b border-[#E2E8F0] px-6 py-2.5">
+              <input
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+                placeholder="搜索账号名称"
+                className="h-8 w-full max-w-[280px] rounded-none border border-[#E2E8F0] bg-white px-3 text-sm outline-none placeholder:text-[#94A3B8] focus:border-[#0033A0]"
+              />
+              {filtered.length > 0 && (
+                <label className="ml-auto flex cursor-pointer select-none items-center gap-2 text-[12px] font-medium text-[#475569]">
+                  <input
+                    type="checkbox"
+                    checked={allChecked}
+                    onChange={toggleSelectAll}
+                    className="size-4 accent-[#0033A0]"
+                  />
+                  全选当前 {filtered.length} 个
+                </label>
+              )}
             </div>
 
             {/* 账号勾选列表 */}
