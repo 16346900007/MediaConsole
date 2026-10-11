@@ -207,6 +207,7 @@ CREATE TABLE IF NOT EXISTS social_materials (
   group_name varchar(100) NULL,
   width integer NULL,
   height integer NULL,
+  thumbnail_url text NULL,
   _created_at timestamptz(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   _created_by user_profile NULL DEFAULT (
     CASE
@@ -226,6 +227,9 @@ CREATE TABLE IF NOT EXISTS social_materials (
 CREATE INDEX IF NOT EXISTS idx_materials_type ON social_materials (type);
 CREATE INDEX IF NOT EXISTS idx_materials_group ON social_materials (group_name);
 CREATE INDEX IF NOT EXISTS idx_materials_created_at ON social_materials (_created_at DESC);
+
+-- 迁移：素材缩略图列（已存在的表补齐）
+ALTER TABLE social_materials ADD COLUMN IF NOT EXISTS thumbnail_url text NULL;
 
 -- ------------------------------------------------------------
 -- 7. 发布排期表（存量表，当前代码未使用，仅保留结构）

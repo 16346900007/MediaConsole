@@ -45,6 +45,7 @@ export class MaterialsService {
       groupName: row.groupName,
       width: row.width,
       height: row.height,
+      thumbnailUrl: row.thumbnailUrl,
       createdAt: row.createdAt.toISOString(),
     };
   }
@@ -106,6 +107,7 @@ export class MaterialsService {
         groupName: dto.groupName ?? null,
         width: dto.width ?? null,
         height: dto.height ?? null,
+        thumbnailUrl: dto.thumbnailUrl ?? null,
       })
       .returning();
     return this.toMaterial(inserted[0]);

@@ -161,6 +161,7 @@ export const socialMaterials = pgTable("social_materials", {
   groupName: varchar("group_name", { length: 100 }),
   width: integer("width"),
   height: integer("height"),
+  thumbnailUrl: text("thumbnail_url"),
   // System field: Creation time (auto-filled, do not modify)
   createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Creator (auto-filled, do not modify)

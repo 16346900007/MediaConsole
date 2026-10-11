@@ -45,6 +45,10 @@ export class CreateMaterialDto implements CreateMaterialRequest {
   @IsOptional()
   @IsInt()
   height?: number | null;
+
+  @IsOptional()
+  @IsString()
+  thumbnailUrl?: string | null;
 }
 
 export class UpdateMaterialDto implements UpdateMaterialRequest {

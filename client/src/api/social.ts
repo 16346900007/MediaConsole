@@ -513,10 +513,12 @@ export async function uploadPublishFile(
   file: File,
   bucket: 'publish-tmp' | 'materials' = 'publish-tmp',
   onProgress?: (percent: number) => void,
+  thumb?: File | null,
 ): Promise<FileUploadResponse> {
   const form = new FormData();
   form.append('file', file);
   form.append('bucket', bucket);
+  if (thumb) form.append('thumb', thumb);
   const response = await axiosForBackend({
     url: '/api/social/files/upload',
     method: 'POST',

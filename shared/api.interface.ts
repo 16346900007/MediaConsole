@@ -221,6 +221,8 @@ export interface MaterialItem {
   groupName: string | null;
   width: number | null;
   height: number | null;
+  /** 视频截帧缩略图读取地址（仅视频有） */
+  thumbnailUrl?: string | null;
   createdAt: string;
 }
 
@@ -238,6 +240,7 @@ export interface CreateMaterialRequest {
   groupName?: string | null;
   width?: number | null;
   height?: number | null;
+  thumbnailUrl?: string | null;
 }
 
 export interface UpdateMaterialRequest {
@@ -440,4 +443,6 @@ export interface FileUploadResponse {
   url: string;
   size: number;
   mime: string;
+  /** 视频截帧缩略图读取地址（随 thumb 字段一起上传时返回） */
+  thumbUrl?: string | null;
 }

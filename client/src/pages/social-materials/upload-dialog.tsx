@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/select';
 import { createMaterial, uploadPublishFile } from '@client/src/api/social';
 import type { MaterialGroup, MaterialType } from '@shared/api.interface';
+import { captureVideoThumbnail } from '@client/src/utils/video-thumbnail';
 
 interface UploadFileItem {
   id: string;
@@ -88,7 +89,17 @@ const UploadMaterialDialog: FC<UploadMaterialDialogProps> = ({
     setUploading(true);
     try {
       for (const item of files) {
-        const uploaded = await uploadPublishFile(item.file, 'materials');
+        // 视频上传时本地截帧，作为独立缩略图一并上传
+        let thumb: File | null = null;
+        if (item.type === 'video') {
+          thumb = await captureVideoThumbnail(item.file);
+        }
+        const uploaded = await uploadPublishFile(
+          item.file,
+          'materials',
+          undefined,
+          thumb,
+        );
         await createMaterial({
           name: item.file.name,
           type: item.type,
@@ -98,6 +109,7 @@ const UploadMaterialDialog: FC<UploadMaterialDialogProps> = ({
           groupName: groupName || null,
           width: null,
           height: null,
+          thumbnailUrl: uploaded.thumbUrl ?? null,
         });
       }
       toast.success(`成功上传 ${files.length} 个文件`);

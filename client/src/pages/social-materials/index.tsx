@@ -437,6 +437,12 @@ const SocialMaterials: FC = () => {
                         alt={item.name}
                         className="h-full w-full object-cover"
                       />
+                    ) : item.thumbnailUrl ? (
+                      <Image
+                        src={item.thumbnailUrl}
+                        alt={item.name}
+                        className="h-full w-full object-cover"
+                      />
                     ) : (
                       <VideoThumbnail
                         src={item.fileUrl}
