@@ -420,6 +420,8 @@ pub fn run() {
                 .title("自媒体多平台管理")
                 .inner_size(1280.0, 800.0)
                 .min_inner_size(960.0, 640.0)
+                // 关闭 Tauri 文件拖放拦截，让 HTML5 drag/drop 直达页面（发布编辑页拖拽上传依赖）
+                .disable_drag_drop_handler()
                 .build()?;
 
             Ok(())

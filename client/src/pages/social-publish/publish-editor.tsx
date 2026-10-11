@@ -414,6 +414,7 @@ export default function PublishEditor() {
                         e.stopPropagation();
                         setPreview({ kind: 'video', index: i });
                       }}
+                      title="点击预览"
                     >
                       <VideoThumbnail
                         src={`/api/social/files/${key}`}
@@ -423,35 +424,20 @@ export default function PublishEditor() {
                         <p className="truncate text-[12px] font-bold text-[#1A1A1A]">
                           {i + 1}. {mediaNames[i] ?? key}
                         </p>
-                        <p className="text-[10px] font-medium text-[#0033A0]">
-                          点击弹窗预览
-                        </p>
                       </div>
                     </button>
-                    <div className="flex shrink-0 items-center gap-1.5">
-                      <button
-                        type="button"
-                        className="text-[11px] font-bold text-[#0033A0] hover:underline"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setPreview({ kind: 'video', index: i });
-                        }}
-                      >
-                        预览
-                      </button>
-                      <button
-                        type="button"
-                        className="flex size-6 items-center justify-center rounded-none bg-[#FEF2F2] text-[#EF4444] transition-colors hover:bg-[#EF4444] hover:text-white"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setMediaFileKeys((prev) => prev.filter((_, idx) => idx !== i));
-                          setMediaNames((prev) => prev.filter((_, idx) => idx !== i));
-                        }}
-                        title="移除视频"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      className="flex size-6 shrink-0 items-center justify-center rounded-none bg-[#FEF2F2] text-[#EF4444] transition-colors hover:bg-[#EF4444] hover:text-white"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMediaFileKeys((prev) => prev.filter((_, idx) => idx !== i));
+                        setMediaNames((prev) => prev.filter((_, idx) => idx !== i));
+                      }}
+                      title="移除视频"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
                   </div>
                 ))}
                 <p className="mt-1 text-[10px] font-medium text-[#94A3B8]">
