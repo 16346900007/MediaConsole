@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync, createReadStream } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync, createReadStream, openSync, readSync, closeSync } from 'node:fs';
 import { extname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -161,6 +161,31 @@ export class FilesService {
     }
     try {
       return readFileSync(this.localPath(fileKey));
+    } catch {
+      return null;
+    }
+  }
+
+  /** 分段读取（支持 HTTP Range / 视频 seek / 抽帧） */
+  async readRange(fileKey: string, start: number, end: number): Promise<Buffer | null> {
+    const { bucket, key } = this.bucketOf(fileKey);
+    try {
+      if (this.s3) {
+        const stream = await this.s3.getPartialObject(bucket, key, start, end);
+        const chunks: Buffer[] = [];
+        for await (const chunk of stream) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        return Buffer.concat(chunks);
+      }
+      const p = this.localPath(fileKey);
+      const fd = openSync(p, 'r');
+      try {
+        const len = end - start + 1;
+        const buf = Buffer.alloc(len);
+        const read = readSync(fd, buf, 0, len, start);
+        return read < len ? buf.subarray(0, read) : buf;
+      } finally {
+        closeSync(fd);
+      }
     } catch {
       return null;
     }

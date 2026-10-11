@@ -9,22 +9,44 @@ interface VideoThumbnailProps {
   fallbackIconSize?: string;
 }
 
+/** 模块级抽帧缓存：同一视频只抽一次帧，切换/刷新直接复用 */
+const thumbCache = new Map<string, string>();
+/** 抽帧超时（秒）：远程大视频元数据加载慢，超时直接回退占位图标 */
+const SEEK_TIMEOUT_MS = 25000;
+
 /** 视频缩略图：加载视频后在浏览器内 seek 到 10%（最多 2 秒）处截一帧显示，
- *  避免首帧黑屏；失败时回退播放图标。发布页、素材库共用。 */
+ *  避免首帧黑屏；失败/超时回退播放图标。发布页、素材库共用。 */
 export default function VideoThumbnail({
   src,
   className,
   fallbackIconSize = 'size-3.5',
 }: VideoThumbnailProps) {
-  const [thumb, setThumb] = useState<string | null>(null);
+  const [thumb, setThumb] = useState<string | null>(() => thumbCache.get(src) ?? null);
 
   useEffect(() => {
+    if (thumbCache.has(src)) {
+      setThumb(thumbCache.get(src)!);
+      return;
+    }
     let cancelled = false;
+    let settled = false;
     const video = document.createElement('video');
     video.preload = 'metadata';
     video.muted = true;
     video.crossOrigin = 'anonymous';
+    video.playsInline = true;
     video.src = src;
+
+    const finish = (dataUrl: string | null) => {
+      if (cancelled || settled) return;
+      settled = true;
+      if (dataUrl) {
+        thumbCache.set(src, dataUrl);
+        setThumb(dataUrl);
+      } else {
+        setThumb(null);
+      }
+    };
 
     const onLoaded = () => {
       try {
@@ -32,7 +54,7 @@ export default function VideoThumbnail({
         const target = Math.min(2, Math.max(0.1, video.duration * 0.1));
         video.currentTime = target;
       } catch {
-        /* 忽略 seek 异常 */
+        finish(null);
       }
     };
     const onSeeked = () => {
@@ -41,22 +63,27 @@ export default function VideoThumbnail({
         canvas.width = 200;
         canvas.height = 112;
         const ctx = canvas.getContext('2d');
-        if (!ctx) return;
+        if (!ctx) return finish(null);
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        if (!cancelled) setThumb(canvas.toDataURL('image/jpeg', 0.72));
+        finish(canvas.toDataURL('image/jpeg', 0.72));
       } catch {
-        /* 抽帧失败时不显示缩略图 */
+        finish(null);
       }
     };
+    const onError = () => finish(null);
     video.addEventListener('loadeddata', onLoaded);
     video.addEventListener('seeked', onSeeked);
-    video.addEventListener('error', () => setThumb(null));
+    video.addEventListener('error', onError);
     video.load();
+
+    const timer = setTimeout(() => finish(null), SEEK_TIMEOUT_MS);
 
     return () => {
       cancelled = true;
+      clearTimeout(timer);
       video.removeEventListener('loadeddata', onLoaded);
       video.removeEventListener('seeked', onSeeked);
+      video.removeEventListener('error', onError);
     };
   }, [src]);
 

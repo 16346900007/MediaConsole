@@ -4,13 +4,14 @@ import {
   Get,
   Param,
   Post,
+  Req,
   Res,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { NeedLogin } from '@lark-apaas/fullstack-nestjs-core';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import type { FileUploadResponse } from '@shared/api.interface';
 import { FilesService } from './files.service';
 @Controller('api/social/files')
@@ -45,11 +46,12 @@ export class FilesController {
     };
   }
 
-  /** 读取文件（封面预览/下载；key 形如 publish-tmp/xxx.mp4） */
+  /** 读取文件（封面预览/下载；key 形如 publish-tmp/xxx.mp4；支持 HTTP Range 分段，视频 seek/抽帧必需） */
   @Get(':bucket/:key')
   async read(
     @Param('bucket') bucket: string,
     @Param('key') key: string,
+    @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
     const fileKey = `${bucket}/${key}`;
@@ -58,9 +60,41 @@ export class FilesController {
       res.status(404).send('not found');
       return;
     }
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Cache-Control', 'no-store');
+
+    const range = req.headers.range;
+    if (range) {
+      const m = /bytes=(\d*)-(\d*)/.exec(range);
+      const size = stat.size;
+      let start = m && m[1] ? parseInt(m[1], 10) : 0;
+      let end = m && m[2] ? parseInt(m[2], 10) : size - 1;
+      if (Number.isNaN(start) || Number.isNaN(end)) {
+        res.setHeader('Content-Range', `bytes */${size}`);
+        res.status(416).send('range not satisfiable');
+        return;
+      }
+      if (end >= size) end = size - 1;
+      if (start > end || start >= size) {
+        res.setHeader('Content-Range', `bytes */${size}`);
+        res.status(416).send('range not satisfiable');
+        return;
+      }
+      const buf = await this.filesService.readRange(fileKey, start, end);
+      if (!buf) {
+        res.status(404).send('not found');
+        return;
+      }
+      res.status(206);
+      res.setHeader('Content-Type', stat.mime);
+      res.setHeader('Content-Length', buf.length);
+      res.setHeader('Content-Range', `bytes ${start}-${end}/${size}`);
+      res.end(buf);
+      return;
+    }
+
     res.setHeader('Content-Type', stat.mime);
     res.setHeader('Content-Length', stat.size);
-    res.setHeader('Cache-Control', 'no-store');
     const buf = await this.filesService.read(fileKey);
     if (!buf) {
       res.status(404).send('not found');
