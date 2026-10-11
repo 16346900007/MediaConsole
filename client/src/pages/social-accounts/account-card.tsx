@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Check, ExternalLink, Loader2, RefreshCw, Trash2 } from 'lucide-react';
+import { Check, ExternalLink, Folder, FolderOpen, Loader2, RefreshCw, Trash2 } from 'lucide-react';
 import type { FC, ReactNode } from 'react';
 import { PLATFORM_MAP } from '@shared/platforms';
 import type { SocialAccount } from '@shared/api.interface';
@@ -178,9 +178,20 @@ const AccountCard: FC<AccountCardProps> = ({
           </span>
         </div>
 
-        <p className="mt-1 text-[10px] font-medium text-[#94A3B8]">
-          {account.groupName ?? '未分组'}
-        </p>
+        {/* 分组徽章：有分组蓝色底，未分组灰色底 */}
+        <div className="mt-1.5">
+          {account.groupName ? (
+            <span className="inline-flex items-center gap-1 rounded-sm bg-[#EFF4FF] px-1.5 py-0.5 text-[10px] font-bold text-[#0033A0]">
+              <Folder className="size-3" />
+              {account.groupName}
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-sm bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-[#94A3B8]">
+              <FolderOpen className="size-3" />
+              未分组
+            </span>
+          )}
+        </div>
 
         {account.note && (
           <p className="mt-2 line-clamp-2 text-[12px] font-medium leading-5 text-slate-600">

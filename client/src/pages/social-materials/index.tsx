@@ -6,7 +6,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Folder,
   FolderDown,
+  FolderOpen,
   Image as ImageIcon,
   ImagePlus,
   PlaySquare,
@@ -416,9 +418,17 @@ const SocialMaterials: FC = () => {
                         {item.name}
                       </p>
                     </div>
-                    <p className="mt-1 text-[10px] font-medium text-[#94A3B8]">
-                      {item.groupName || '未分组'}
-                    </p>
+                    {item.groupName ? (
+                      <span className="inline-flex items-center gap-1 rounded-sm bg-[#EFF4FF] px-1.5 py-0.5 text-[10px] font-bold text-[#0033A0]">
+                        <Folder className="size-3" />
+                        {item.groupName}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-sm bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-[#94A3B8]">
+                        <FolderOpen className="size-3" />
+                        未分组
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
@@ -585,9 +595,19 @@ const SocialMaterials: FC = () => {
               <p className="truncate text-sm font-bold text-[#1A1A1A]">
                 {preview?.name}
               </p>
-              <p className="mt-0.5 text-[12px] font-medium text-[#94A3B8]">
-                {preview?.groupName || '未分组'}
-              </p>
+              <div className="mt-1">
+                {preview?.groupName ? (
+                  <span className="inline-flex items-center gap-1 rounded-sm bg-[#EFF4FF] px-1.5 py-0.5 text-[10px] font-bold text-[#0033A0]">
+                    <Folder className="size-3" />
+                    {preview.groupName}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-sm bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-[#94A3B8]">
+                    <FolderOpen className="size-3" />
+                    未分组
+                  </span>
+                )}
+              </div>
             </div>
             {previewList.length > 1 && (
               <span className="shrink-0 text-[12px] font-bold text-[#94A3B8]">
