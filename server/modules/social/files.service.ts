@@ -53,7 +53,8 @@ export class FilesService {
     }
   >();
   /** 上传并发限制 */
-  private readonly partSize = 3 * 1024 * 1024;
+  // MinIO/S3 multipart 分片最小 5MB（服务端硬限制，最后一片除外），取最小以获得最细进度粒度
+  private readonly partSize = 5 * 1024 * 1024;
 
   constructor() {
     const endpoint = process.env.S3_ENDPOINT?.trim();
