@@ -7,14 +7,19 @@ import { tmpdir } from 'node:os';
 /**
  * 统一文件存储服务。
  * 抽象统一上传/读取/删除接口；当前为本地磁盘实现（开发环境），
- * 部署到服务器（Docker + MinIO）时替换为 S3 实现，接口不变。
+ * 部署到服务器（SILO/MinIO S3 兼容）时替换为 S3 实现，接口不变。
  *
- * Bucket 约定：
- *  - publish-tmp：发布临时文件，发布执行完成后删除（不占用系统存储）
- *  - materials：素材库文件，持久保留
+ * Bucket 约定（默认带项目前缀 media-console-，部署时可用环境变量覆盖）：
+ *  - {prefix}-publish-tmp：发布临时文件，发布执行完成后删除（不占用系统存储）
+ *  - {prefix}-materials：素材库文件，持久保留
  */
 
-export const FILE_BUCKETS = ['publish-tmp', 'materials'] as const;
+const BUCKET_PREFIX = process.env.S3_BUCKET_PREFIX ?? 'media-console';
+
+export const FILE_BUCKETS = [
+  `${BUCKET_PREFIX}-publish-tmp`,
+  `${BUCKET_PREFIX}-materials`,
+] as const;
 export type FileBucket = (typeof FILE_BUCKETS)[number];
 
 @Injectable()
