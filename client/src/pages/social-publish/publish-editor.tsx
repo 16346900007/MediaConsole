@@ -1678,7 +1678,7 @@ function TopicCapsuleInput({
   };
 
   return (
-    <div className="flex min-h-10 w-full flex-wrap items-center gap-1.5 rounded-none border border-[#E2E8F0] bg-white px-2 py-1.5 text-sm transition-colors focus-within:border-[#0033A0]">
+    <div className="flex min-h-10 w-full flex-wrap items-center gap-1.5 rounded-none border border-[#E2E8F0] bg-white px-2 py-1 text-sm transition-colors focus-within:border-[#0033A0]">
       {value.map((t) => (
         <span
           key={t}

@@ -53,7 +53,7 @@ export class FilesService {
     }
   >();
   /** 上传并发限制 */
-  private readonly partSize = 16 * 1024 * 1024;
+  private readonly partSize = 3 * 1024 * 1024;
 
   constructor() {
     const endpoint = process.env.S3_ENDPOINT?.trim();
