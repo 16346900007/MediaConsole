@@ -336,7 +336,30 @@ export default function PublishEditor() {
     }
   };
 
+  /* 发布前表单校验：立即发布/定时发布拦截，草稿允许不完整 */
+  const validatePublish = (): string | null => {
+    if (targets.length === 0) {
+      return '请至少选择一个发布账号';
+    }
+    if (publishType === 'video' && mediaFileKeys.length === 0) {
+      return '请至少上传 1 个视频文件';
+    }
+    if (publishType === 'image' && mediaFileKeys.length === 0) {
+      return '请至少上传 1 张图片';
+    }
+    if (publishType === 'article' && !body.trim()) {
+      return '请填写文章正文';
+    }
+    return null;
+  };
+
   const handlePublishNow = async () => {
+    const v = validatePublish();
+    if (v) {
+      setError(v);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -356,6 +379,13 @@ export default function PublishEditor() {
   const handleSchedule = async () => {
     if (!scheduleAt) {
       setError('请先选择定时发布时间');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    const v = validatePublish();
+    if (v) {
+      setError(v);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
     setSaving(true);
