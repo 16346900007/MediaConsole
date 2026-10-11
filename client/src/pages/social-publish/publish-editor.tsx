@@ -128,7 +128,21 @@ const PLATFORM_EXTRA_FIELDS: Record<string, ExtraField[]> = {
       ],
     },
   ],
-  kuaishou: [{ key: 'category', label: '分类', type: 'text' }],
+  kuaishou: [
+    { key: 'category', label: '分类', type: 'text' },
+    {
+      key: 'declare',
+      label: '作者声明',
+      type: 'select',
+      options: [
+        { value: '', label: '无' },
+        { value: 'ai', label: '内容为AI生成' },
+        { value: 'drama', label: '演绎情节，仅供娱乐' },
+        { value: 'opinion', label: '个人观点，仅供参考' },
+        { value: 'network', label: '素材来源于网络' },
+      ],
+    },
+  ],
   weibo: [
     {
       key: 'declare',

@@ -41,44 +41,43 @@ export default function BiliPartitionPicker({ value, onChange }: Props) {
   const candidates = useMemo(() => (partitions ?? []).filter((p) => p.tid && p.name), [partitions]);
 
   const selectCls =
-    'w-full rounded-none border border-[#E2E8F0] bg-white px-3 py-2 text-sm outline-none focus:border-[#0033A0]';
+    'w-full rounded-none border border-[#E2E8F0] bg-white px-3 py-2 text-sm outline-none focus:border-[#0033A0] disabled:cursor-not-allowed disabled:bg-[#F8FAFC] disabled:text-[#94A3B8]';
 
+  /* 加载中/失败：保留 select 框形态（禁用），避免表单区塌陷 */
   if (error) {
-    return <p className="text-[12px] font-medium text-[#EF4444]">{error}</p>;
+    return (
+      <div className="w-full">
+        <select disabled className={selectCls}>
+          <option value="">分区加载失败，请重试</option>
+        </select>
+        <p className="mt-1 text-[10px] font-medium text-[#EF4444]">{error}</p>
+      </div>
+    );
   }
   if (!partitions) {
     return (
-      <p className="text-[12px] font-medium text-[#94A3B8]">分区加载中（无头模式实时获取）…</p>
+      <select disabled className={selectCls}>
+        <option value="">分区加载中（无头模式实时获取）…</option>
+      </select>
     );
   }
 
   return (
-    <div className="flex w-full items-center gap-2">
-      <select
-        value={value?.tid ? String(value.tid) : ''}
-        onChange={(e) => {
-          const p = candidates.find((x) => x.tid === Number(e.target.value));
-          if (!p) return;
-          onChange({ tid: p.tid, partitionName: p.name, subPartitionName: p.name });
-        }}
-        className={selectCls}
-      >
-        <option value="">请选择分区</option>
-        {candidates.map((p) => (
-          <option key={p.tid} value={String(p.tid)}>
-            {p.name}
-          </option>
-        ))}
-      </select>
-      {value && (
-        <button
-          type="button"
-          onClick={() => onChange(null)}
-          className="shrink-0 rounded-none border border-[#E2E8F0] px-2 py-2 text-[12px] font-medium text-[#94A3B8] hover:bg-slate-50"
-        >
-          清空
-        </button>
-      )}
-    </div>
+    <select
+      value={value?.tid ? String(value.tid) : ''}
+      onChange={(e) => {
+        const p = candidates.find((x) => x.tid === Number(e.target.value));
+        if (!p) return;
+        onChange({ tid: p.tid, partitionName: p.name, subPartitionName: p.name });
+      }}
+      className={selectCls}
+    >
+      <option value="">请选择分区</option>
+      {candidates.map((p) => (
+        <option key={p.tid} value={String(p.tid)}>
+          {p.name}
+        </option>
+      ))}
+    </select>
   );
 }
