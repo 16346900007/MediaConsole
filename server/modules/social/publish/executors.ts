@@ -65,7 +65,31 @@ export async function runPublish(
       userAgent: DEFAULT_UA,
     });
     const page = await context.newPage();
-    const ctx: PublishContext = { page, context, account, task, files };
+    let ctx: PublishContext = { page, context, account, task, files };
+
+    // 话题自动拼入正文的平台：这些平台的话题是嵌入正文/描述发布的，
+    // 用户正文只写普通描述，发布时自动把话题追加到正文末尾。
+    // 微博为 #话题#（双边）格式，小红书/视频号/快手为 #话题（单边）格式。
+    const TOPIC_IN_BODY: ReadonlySet<SocialPlatform> = new Set([
+      'xiaohongshu',
+      'shipinhao',
+      'weibo',
+      'kuaishou',
+    ]);
+    if (TOPIC_IN_BODY.has(platform) && task.topic) {
+      const rawTopics = task.topic
+        .split(/\s+/)
+        .map((t) => t.trim().replace(/^#+/, ''))
+        .filter(Boolean);
+      if (rawTopics.length > 0) {
+        const appended =
+          platform === 'weibo'
+            ? rawTopics.map((t) => `#${t}#`).join(' ')
+            : rawTopics.map((t) => `#${t}`).join(' ');
+        const body = task.body.trim();
+        ctx = { ...ctx, task: { ...task, body: body ? `${body}\n${appended}` : appended } };
+      }
+    }
 
     switch (platform) {
       case 'bilibili':
