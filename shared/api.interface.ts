@@ -259,6 +259,18 @@ export interface MaterialGroup {
   count: number;
 }
 
+/** 账号分组（账号页分组管理，结构与素材分组一致） */
+export interface AccountGroup {
+  name: string;
+  count: number;
+}
+
+/** 批量移动账号到分组 */
+export interface AccountBatchMoveRequest {
+  ids: string[];
+  groupName: string | null;
+}
+
 export interface MaterialUsageResponse {
   usedBytes: number;
   totalBytes: number;

@@ -135,7 +135,7 @@ const AccountCard: FC<AccountCardProps> = ({
           {account.accountName}
         </h3>
 
-        {/* 平台标志：logo + 平台名 */}
+        {/* 平台标志：logo + 平台名 + 分组 */}
         <div className="mt-1.5 flex items-center gap-1.5">
           <Image
             src={PLATFORM_LOGOS[platform.value]}
@@ -146,6 +146,10 @@ const AccountCard: FC<AccountCardProps> = ({
             {platform.name}
           </span>
         </div>
+
+        <p className="mt-1 text-[10px] font-medium text-[#94A3B8]">
+          {account.groupName ?? '未分组'}
+        </p>
 
         {account.note && (
           <p className="mt-2 line-clamp-2 text-[12px] font-medium leading-5 text-slate-600">

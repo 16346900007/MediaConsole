@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { PLATFORMS } from '@shared/platforms';
 import type { PlatformMeta } from '@shared/platforms';
 import type {
+  AccountGroup,
   AccountStatus,
   CreateAccountRequest,
   SocialAccount,
@@ -92,6 +93,8 @@ function emptyStringToNull(value: string): string | null {
 interface AccountFormDialogProps {
   open: boolean;
   account: SocialAccount | null;
+  /** 现有账号分组（分组下拉选项） */
+  groups: AccountGroup[];
   onClose: () => void;
   onSaved: () => void;
   children?: ReactNode;
@@ -100,6 +103,7 @@ interface AccountFormDialogProps {
 const AccountFormDialog: FC<AccountFormDialogProps> = ({
   open,
   account,
+  groups,
   onClose,
   onSaved,
 }) => {
@@ -323,9 +327,28 @@ const AccountFormDialog: FC<AccountFormDialogProps> = ({
                 render={({ field }) => (
                   <FormItem className="flex-1 basis-2/5">
                     <FormLabel className="text-[12px] font-bold text-[#94A3B8]">分组</FormLabel>
-                    <FormControl>
-                      <Input placeholder="如：主矩阵（可选）" {...field} />
-                    </FormControl>
+                    <Select
+                      onValueChange={(value: string) =>
+                        field.onChange(value === '__none__' ? '' : value)
+                      }
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full rounded-none border-[#E2E8F0] text-sm">
+                          <SelectValue placeholder="选择分组（可选）" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="__none__" className="text-sm">
+                          未分组
+                        </SelectItem>
+                        {groups.map((item: AccountGroup) => (
+                          <SelectItem key={item.name} value={item.name} className="text-sm">
+                            {item.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}

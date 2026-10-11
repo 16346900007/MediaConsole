@@ -8,11 +8,15 @@ import {
   type PostgresJsDatabase,
   DRIZZLE_DATABASE,
 } from '@lark-apaas/fullstack-nestjs-core';
-import { and, eq, type SQL } from 'drizzle-orm';
-import { socialAccounts } from '@server/database/schema';
-import type { SocialAccount, SocialPlatform } from '@shared/api.interface';
+import { and, asc, eq, inArray, sql, type SQL } from 'drizzle-orm';
+import { socialAccountGroups, socialAccounts } from '@server/database/schema';
+import type { AccountGroup, SocialAccount, SocialPlatform } from '@shared/api.interface';
 import { PLATFORM_MAP } from '@shared/platforms';
-import type { CreateAccountDto, UpdateAccountDto } from './accounts.dto';
+import type {
+  AccountBatchMoveDto,
+  CreateAccountDto,
+  UpdateAccountDto,
+} from './accounts.dto';
 import {
   authDir,
   extractPageUserInfo,
@@ -142,6 +146,95 @@ export class AccountsService {
     if (rows.length === 0) {
       throw new NotFoundException('账号不存在');
     }
+  }
+
+  /** 账号分组列表：分组表 + 账号 groupName 聚合兜底（与素材库一致） */
+  async listGroups(): Promise<AccountGroup[]> {
+    const groupRows = await this.db
+      .select({ name: socialAccountGroups.name })
+      .from(socialAccountGroups)
+      .orderBy(asc(socialAccountGroups.createdAt));
+
+    const countRows = await this.db
+      .select({
+        name: socialAccounts.groupName,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(socialAccounts)
+      .where(sql`${socialAccounts.groupName} IS NOT NULL`)
+      .groupBy(socialAccounts.groupName);
+    const countMap = new Map<string, number>();
+    for (const row of countRows) {
+      if (row.name !== null) {
+        countMap.set(row.name, row.count);
+      }
+    }
+
+    const knownNames = new Set<string>(
+      groupRows.map((row: { name: string }) => row.name),
+    );
+    const groups: AccountGroup[] = groupRows.map(
+      (row: { name: string }): AccountGroup => ({
+        name: row.name,
+        count: countMap.get(row.name) ?? 0,
+      }),
+    );
+    for (const [name, count] of countMap) {
+      if (!knownNames.has(name)) {
+        groups.push({ name, count });
+      }
+    }
+    return groups;
+  }
+
+  async createGroup(name: string): Promise<void> {
+    await this.db
+      .insert(socialAccountGroups)
+      .values({ name })
+      .onConflictDoNothing();
+  }
+
+  async renameGroup(oldName: string, newName: string): Promise<void> {
+    const groupRows: { id: string }[] = await this.db
+      .update(socialAccountGroups)
+      .set({ name: newName, updatedAt: new Date() })
+      .where(eq(socialAccountGroups.name, oldName))
+      .returning({ id: socialAccountGroups.id });
+    if (groupRows.length === 0) {
+      throw new NotFoundException('分组不存在');
+    }
+    await this.db
+      .update(socialAccounts)
+      .set({ groupName: newName, updatedAt: new Date() })
+      .where(eq(socialAccounts.groupName, oldName));
+  }
+
+  async deleteGroup(name: string): Promise<void> {
+    const groupRows: { id: string }[] = await this.db
+      .delete(socialAccountGroups)
+      .where(eq(socialAccountGroups.name, name))
+      .returning({ id: socialAccountGroups.id });
+    if (groupRows.length === 0) {
+      throw new NotFoundException('分组不存在');
+    }
+    // 分组下账号移到未分组
+    await this.db
+      .update(socialAccounts)
+      .set({ groupName: null, updatedAt: new Date() })
+      .where(eq(socialAccounts.groupName, name));
+  }
+
+  async batchMove(dto: AccountBatchMoveDto): Promise<void> {
+    if (dto.ids.length === 0) {
+      throw new BadRequestException('未选择账号');
+    }
+    await this.db
+      .update(socialAccounts)
+      .set({
+        groupName: dto.groupName ?? null,
+        updatedAt: new Date(),
+      })
+      .where(inArray(socialAccounts.id, dto.ids));
   }
 
   /**

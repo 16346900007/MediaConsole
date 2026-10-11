@@ -170,6 +170,31 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_material_groups_name
   ON social_material_groups (name);
 
 -- ------------------------------------------------------------
+-- 5.1 账号分组表（账号页分组管理，参考素材分组）
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS social_account_groups (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name varchar(100) NOT NULL,
+  _created_at timestamptz(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  _created_by user_profile NULL DEFAULT (
+    CASE
+      WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL::user_profile
+      ELSE (concat('(', current_setting('app.user_id'::text, true), ')'))::user_profile
+    END
+  ),
+  _updated_at timestamptz(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  _updated_by user_profile NULL DEFAULT (
+    CASE
+      WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL::user_profile
+      ELSE (concat('(', current_setting('app.user_id'::text, true), ')'))::user_profile
+    END
+  )
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_account_groups_name
+  ON social_account_groups (name);
+
+-- ------------------------------------------------------------
 -- 6. 素材表
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS social_materials (

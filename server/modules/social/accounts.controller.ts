@@ -9,9 +9,15 @@ import {
   Query,
 } from '@nestjs/common';
 import { NeedLogin } from '@lark-apaas/fullstack-nestjs-core';
-import type { SocialAccount } from '@shared/api.interface';
+import type { AccountGroup, SocialAccount } from '@shared/api.interface';
 import { AccountsService } from './accounts.service';
-import { CreateAccountDto, UpdateAccountDto } from './accounts.dto';
+import {
+  AccountBatchMoveDto,
+  CreateAccountDto,
+  CreateGroupDto,
+  UpdateAccountDto,
+  UpdateGroupDto,
+} from './accounts.dto';
 
 @Controller('api/social/accounts')
 export class AccountsController {
@@ -24,6 +30,11 @@ export class AccountsController {
     @Query('status') status?: string,
   ): Promise<SocialAccount[]> {
     return this.accountsService.listAccounts({ platform, group, status });
+  }
+
+  @Get('groups')
+  async listGroups(): Promise<AccountGroup[]> {
+    return this.accountsService.listGroups();
   }
 
   @NeedLogin()
@@ -53,5 +64,32 @@ export class AccountsController {
   @Get('verify/:id')
   async verifyAccount(@Param('id') id: string): Promise<SocialAccount> {
     return this.accountsService.verifyAccount(id);
+  }
+
+  @NeedLogin()
+  @Post('batch-move')
+  async batchMove(@Body() dto: AccountBatchMoveDto): Promise<void> {
+    return this.accountsService.batchMove(dto);
+  }
+
+  @NeedLogin()
+  @Post('groups')
+  async createGroup(@Body() dto: CreateGroupDto): Promise<void> {
+    return this.accountsService.createGroup(dto.name);
+  }
+
+  @NeedLogin()
+  @Patch('groups/:name')
+  async renameGroup(
+    @Param('name') name: string,
+    @Body() dto: UpdateGroupDto,
+  ): Promise<void> {
+    return this.accountsService.renameGroup(name, dto.name);
+  }
+
+  @NeedLogin()
+  @Delete('groups/:name')
+  async deleteGroup(@Param('name') name: string): Promise<void> {
+    return this.accountsService.deleteGroup(name);
   }
 }

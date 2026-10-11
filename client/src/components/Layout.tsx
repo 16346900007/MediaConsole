@@ -28,7 +28,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { to: '/', label: '工作台', icon: LayoutDashboard, end: true },
-  { to: '/accounts', label: '账号矩阵', icon: Users },
+  { to: '/accounts', label: '账号', icon: Users },
   { to: '/publish', label: '发布', icon: Send },
   { to: '/materials', label: '素材库', icon: Images },
 ];

@@ -134,6 +134,23 @@ export const socialMaterialGroups = pgTable("social_material_groups", {
   uniqueIndex("idx_material_groups_name").on(table.name),
 ]);
 
+export const socialAccountGroups = pgTable("social_account_groups", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: varchar("name", { length: 100 }).notNull().unique(),
+  // System field: Creation time (auto-filled, do not modify)
+  createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  // System field: Creator (auto-filled, do not modify)
+  createdBy: userProfile("_created_by").default(sql`CASE
+    WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
+  // System field: Update time (auto-filled, do not modify)
+  updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  // System field: Updater (auto-filled, do not modify)
+  updatedBy: userProfile("_updated_by").default(sql`CASE
+    WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
+}, (table) => [
+  uniqueIndex("idx_account_groups_name").on(table.name),
+]);
+
 export const socialMaterials = pgTable("social_materials", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 200 }).notNull(),
@@ -434,6 +451,7 @@ export const socialAccountsTable = socialAccounts;
 export const socialContentVariantsTable = socialContentVariants;
 export const socialContentsTable = socialContents;
 export const socialMaterialGroupsTable = socialMaterialGroups;
+export const socialAccountGroupsTable = socialAccountGroups;
 export const socialMaterialsTable = socialMaterials;
 export const socialMetricsTable = socialMetrics;
 export const socialPublishPlansTable = socialPublishPlans;

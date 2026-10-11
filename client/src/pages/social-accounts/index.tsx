@@ -6,11 +6,15 @@ import { PLATFORMS } from '@shared/platforms';
 import type { PlatformMeta } from '@shared/platforms';
 import { PLATFORM_LOGOS } from '@/utils/platform-logos';
 import { Image } from '@client/src/components/ui/image';
-import type { SocialAccount } from '@shared/api.interface';
+import type { AccountGroup, SocialAccount } from '@shared/api.interface';
 import {
+  createAccountGroup,
   deleteAccount,
+  deleteAccountGroup,
   getBrowserAuthStatus,
+  listAccountGroups,
   listAccounts,
+  renameAccountGroup,
   startBrowserAuth,
   verifyAccount,
 } from '@client/src/api/social';
@@ -23,37 +27,21 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
+import GroupSidebar from '../social-materials/group-sidebar';
 import AccountCard from './account-card';
 import AccountFormDialog from './account-form-dialog';
 import PlatformAuthDialog from './platform-auth-dialog';
 import { extractErrorMessage } from './utils';
 
-interface FilterPillProps {
-  active: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}
-
-const FilterPill: FC<FilterPillProps> = ({ active, onClick, children }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    className={`inline-flex items-center gap-1.5 rounded-none border px-3.5 py-1.5 text-sm font-bold transition-colors ${
-      active
-        ? 'border-[#0033A0] bg-[#0033A0] text-white'
-        : 'border-[#E2E8F0] bg-white text-[#64748B] hover:border-[#0033A0] hover:text-[#0033A0]'
-    }`}
-  >
-    {children}
-  </button>
-);
-
 const SocialAccounts: FC = () => {
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
   const [allAccounts, setAllAccounts] = useState<SocialAccount[]>([]);
+  const [groups, setGroups] = useState<AccountGroup[]>([]);
+  const [activeGroup, setActiveGroup] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [platformFilter, setPlatformFilter] = useState<string>('all');
+  const [platformFilter, setPlatformFilter] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [platformAuthOpen, setPlatformAuthOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<SocialAccount | null>(
@@ -65,28 +53,43 @@ const SocialAccounts: FC = () => {
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
   const [refreshLoading, setRefreshLoading] = useState(false);
 
+  const loadGroups = useCallback(async (): Promise<void> => {
+    try {
+      setGroups(await listAccountGroups());
+    } catch (err: unknown) {
+      toast.error(`加载分组失败：${extractErrorMessage(err)}`);
+    }
+  }, []);
+
   const load = useCallback(async (): Promise<void> => {
     setLoading(true);
     setError(null);
     try {
-      const params: { platform?: string } = {};
-      if (platformFilter !== 'all') params.platform = platformFilter;
-      const [filtered, all] = await Promise.all([
+      const params: { platform?: string; group?: string } = {};
+      if (platformFilter !== null) params.platform = platformFilter;
+      if (activeGroup !== '') params.group = activeGroup;
+      const [filtered, all, groupList] = await Promise.all([
         listAccounts(params),
         listAccounts(),
+        listAccountGroups(),
       ]);
       setAccounts(filtered);
       setAllAccounts(all);
+      setGroups(groupList);
     } catch (err: unknown) {
       setError(extractErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, [platformFilter]);
+  }, [platformFilter, activeGroup]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void loadGroups();
+  }, [loadGroups]);
 
   /** 单独校验单个账号在线状态（卡片级刷新按钮） */
   const handleVerifyOne = async (account: SocialAccount): Promise<void> => {
@@ -249,57 +252,85 @@ const SocialAccounts: FC = () => {
     }
   };
 
+  /** 分组：选择 / 新建 / 重命名 / 删除（与素材库交互一致） */
+  const handleSelectGroup = (group: string): void => {
+    setActiveGroup(group);
+  };
+
+  const handleCreateGroup = async (name: string): Promise<void> => {
+    await createAccountGroup(name);
+    await loadGroups();
+  };
+
+  const handleRenameGroup = async (
+    oldName: string,
+    newName: string,
+  ): Promise<void> => {
+    await renameAccountGroup(oldName, newName);
+    await loadGroups();
+    if (activeGroup === oldName) {
+      setActiveGroup(newName);
+    }
+  };
+
+  const handleDeleteGroup = async (name: string): Promise<void> => {
+    await deleteAccountGroup(name);
+    await loadGroups();
+    if (activeGroup === name) {
+      setActiveGroup('');
+    }
+  };
+
+  /** 工作台同款筛选样式：实心蓝底、可再次点击取消（toggle） */
+  const pillClass = (active: boolean): string =>
+    cn(
+      'flex items-center gap-1.5 rounded-none border px-3 py-1.5 text-sm font-medium transition-colors',
+      active
+        ? 'border-transparent bg-[#0033A0] text-white'
+        : 'border-[#E2E8F0] bg-white text-[#475569] hover:bg-slate-50',
+    );
+
   return (
-    <div>
-      <div className="max-w-7xl mx-auto px-8 pt-8 pb-20 space-y-8">
-        <div>
-          <div className="mb-6">
-            <p className="mb-1 text-[12px] font-black uppercase tracking-[0.15em] text-[#0033A0]">
-              01. 筛选条件
-            </p>
-            <p className="text-[10px] font-medium text-[#94A3B8]">
-              FILTER CRITERIA
-            </p>
-          </div>
-          <div className="rounded-none border-t-[3px] border-t-[#0033A0] bg-white shadow-md p-6">
-            {/* 平台选项单行显示：全部 + 各平台图标同一行 */}
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="mr-1 text-sm font-bold text-[#64748B]">
-                平台
-              </span>
-              <FilterPill
-                active={platformFilter === 'all'}
-                onClick={() => setPlatformFilter('all')}
+    <div className="flex min-h-0">
+      <GroupSidebar
+        groups={groups}
+        activeGroup={activeGroup}
+        onSelectGroup={handleSelectGroup}
+        onCreateGroup={handleCreateGroup}
+        onRenameGroup={handleRenameGroup}
+        onDeleteGroup={handleDeleteGroup}
+      />
+      <div className="min-w-0 flex-1">
+        {/* 顶部：平台筛选 + 操作按钮 */}
+        <div className="sticky top-14 z-10 border-b border-[#E2E8F0] bg-white px-8 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-2.5">
+              <button
+                type="button"
+                onClick={() => setPlatformFilter(null)}
+                className={pillClass(platformFilter === null)}
               >
-                全部
-              </FilterPill>
-              {PLATFORMS.map((item: PlatformMeta) => (
-                <FilterPill
-                  key={item.value}
-                  active={platformFilter === item.value}
-                  onClick={() => setPlatformFilter(item.value)}
+                全部平台
+              </button>
+              {PLATFORMS.map((meta) => (
+                <button
+                  key={meta.value}
+                  type="button"
+                  onClick={() =>
+                    setPlatformFilter(
+                      platformFilter === meta.value ? null : meta.value,
+                    )
+                  }
+                  className={pillClass(platformFilter === meta.value)}
                 >
                   <Image
-                    src={PLATFORM_LOGOS[item.value]}
-                    alt={item.name}
-                    className="size-3.5 shrink-0 object-contain"
+                    src={PLATFORM_LOGOS[meta.value]}
+                    alt=""
+                    className="size-4 rounded-none"
                   />
-                  <span className="truncate">{item.name}</span>
-                </FilterPill>
+                  {meta.name}
+                </button>
               ))}
-            </div>
-          </div>
-        </div>
-
-        <div data-ai-section-type="card-list">
-          <div className="mb-6 flex items-end justify-between">
-            <div>
-              <p className="mb-1 text-[12px] font-black uppercase tracking-[0.15em] text-[#0033A0]">
-                02. 账号列表
-              </p>
-              <p className="text-[10px] font-medium text-[#94A3B8]">
-                ACCOUNT LIST
-              </p>
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -322,6 +353,9 @@ const SocialAccounts: FC = () => {
               </Button>
             </div>
           </div>
+        </div>
+
+        <div className="px-8 pb-20 pt-6">
           {loading ? (
             <div className="grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-3">
               {[0, 1, 2].map((key: number) => (
@@ -348,11 +382,12 @@ const SocialAccounts: FC = () => {
               <Users className="size-10 text-[#94A3B8]" />
               <div>
                 <p className="text-base font-bold tracking-tight text-[#1E293B]">
-                  还没有账号
+                  {activeGroup !== '' ? '该分组还没有账号' : '还没有账号'}
                 </p>
                 <p className="mt-2 text-[12px] font-medium text-slate-600">
-                  授权你的第一个账号，开始管理抖音、小红书、B站等 7
-                  个平台的矩阵
+                  {activeGroup !== ''
+                    ? '可切换其他分组，或授权账号后移动到该分组'
+                    : '授权你的第一个账号，开始管理抖音、小红书、B站等 7 个平台的矩阵'}
                 </p>
               </div>
               <Button
@@ -383,6 +418,7 @@ const SocialAccounts: FC = () => {
       <AccountFormDialog
         open={formOpen}
         account={editingAccount}
+        groups={groups}
         onClose={handleFormClose}
         onSaved={handleFormSaved}
       />

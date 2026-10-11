@@ -715,7 +715,7 @@ export default function PublishEditor() {
         </div>
         {accountsByPlatform.size === 0 ? (
           <p className="text-[12px] font-medium text-[#94A3B8]">
-            当前发布类型无可选账号，请先在账号矩阵完成授权
+            当前发布类型无可选账号，请先在账号页完成授权
           </p>
         ) : (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

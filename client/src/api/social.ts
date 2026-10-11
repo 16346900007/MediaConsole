@@ -1,5 +1,7 @@
 import { axiosForBackend } from '@lark-apaas/client-toolkit/utils/getAxiosForBackend';
 import type {
+  AccountBatchMoveRequest,
+  AccountGroup,
   AuthStartRequest,
   AuthStartResponse,
   ContentListResponse,
@@ -38,6 +40,55 @@ export async function listAccounts(params?: {
     params,
   });
   return response.data;
+}
+
+/** 账号分组列表 */
+export async function listAccountGroups(): Promise<AccountGroup[]> {
+  const response = await axiosForBackend({
+    url: '/api/social/accounts/groups',
+    method: 'GET',
+  });
+  return response.data;
+}
+
+/** 新建账号分组 */
+export async function createAccountGroup(name: string): Promise<void> {
+  await axiosForBackend({
+    url: '/api/social/accounts/groups',
+    method: 'POST',
+    data: { name },
+  });
+}
+
+/** 重命名账号分组 */
+export async function renameAccountGroup(
+  oldName: string,
+  newName: string,
+): Promise<void> {
+  await axiosForBackend({
+    url: `/api/social/accounts/groups/${encodeURIComponent(oldName)}`,
+    method: 'PATCH',
+    data: { name: newName },
+  });
+}
+
+/** 删除账号分组（分组下账号移到未分组） */
+export async function deleteAccountGroup(name: string): Promise<void> {
+  await axiosForBackend({
+    url: `/api/social/accounts/groups/${encodeURIComponent(name)}`,
+    method: 'DELETE',
+  });
+}
+
+/** 批量移动账号到分组 */
+export async function batchMoveAccounts(
+  data: AccountBatchMoveRequest,
+): Promise<void> {
+  await axiosForBackend({
+    url: '/api/social/accounts/batch-move',
+    method: 'POST',
+    data,
+  });
 }
 
 /** 校验单个账号登录态（cookie 是否过期 + 重新提取用户信息），返回更新后的账号 */
