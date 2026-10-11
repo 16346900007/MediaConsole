@@ -285,6 +285,15 @@ export interface TopicLibrary {
   groups: TopicGroup[];
 }
 
+/** 高德位置联想结果（发布页「位置」字段） */
+export interface GeoPlace {
+  name: string;
+  address: string;
+  adcode: string;
+  location: string;
+  typecode: string;
+}
+
 /** 批量移动账号到分组 */
 export interface AccountBatchMoveRequest {
   ids: string[];

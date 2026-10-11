@@ -63,6 +63,7 @@ import { cn } from '@/lib/utils';
 import { resolveErrorMessage } from '../social-analytics/helpers';
 import PublishTypeDialog from './publish-type-dialog';
 import TopicLibraryDialog from './topic-library-dialog';
+import LocationInput from './location-input';
 
 /** 平台特有字段定义（编辑页按选中平台展示，存 platformFields） */
 interface ExtraField {
@@ -915,11 +916,10 @@ export default function PublishEditor() {
           </Field>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Field label="位置" unsupported={unsupportedOf('location')}>
-              <input
+              <LocationInput
                 value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="可选，如：广东惠州"
-                className="w-full rounded-none border border-[#E2E8F0] bg-white px-3 py-2 text-sm outline-none focus:border-[#0033A0]"
+                onChange={setLocation}
+                placeholder="可选，输入关键词搜索地址，如：深圳湾公园"
               />
             </Field>
             <Field label="谁可以看" unsupported={unsupportedOf('visibility')}>

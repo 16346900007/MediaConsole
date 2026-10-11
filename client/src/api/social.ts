@@ -29,6 +29,7 @@ import type {
   MaterialUsageResponse,
   TopicGroup,
   TopicLibrary,
+  GeoPlace,
 } from '@shared/api.interface';
 
 export async function listAccounts(params?: {
@@ -106,6 +107,21 @@ export async function deleteTopicTag(id: string): Promise<void> {
     url: `/api/social/topics/tags/${id}`,
     method: 'DELETE',
   });
+}
+
+/* ---------- 位置联想（发布页，高德） ---------- */
+
+/** 按关键词搜索地址/POI */
+export async function searchGeoPlaces(
+  keywords: string,
+  city?: string,
+): Promise<GeoPlace[]> {
+  const response = await axiosForBackend({
+    url: '/api/social/geo/place',
+    method: 'GET',
+    params: { keywords, city: city ?? '' },
+  });
+  return response.data;
 }
 
 /** 新建账号分组 */
