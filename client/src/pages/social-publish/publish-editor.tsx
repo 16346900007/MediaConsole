@@ -415,10 +415,16 @@ export default function PublishEditor() {
                         setPreview({ kind: 'video', index: i });
                       }}
                     >
-                      <FileVideo className="size-4.5 shrink-0 text-[#0033A0]" />
+                      <VideoThumbnail
+                        src={`/api/social/files/${key}`}
+                        className="size-14"
+                      />
                       <div className="min-w-0">
                         <p className="truncate text-[12px] font-bold text-[#1A1A1A]">
                           {i + 1}. {mediaNames[i] ?? key}
+                        </p>
+                        <p className="text-[10px] font-medium text-[#0033A0]">
+                          点击弹窗预览
                         </p>
                       </div>
                     </button>
@@ -896,6 +902,73 @@ function Field({
       {unsupported ? (
         <p className="mt-1 text-[10px] font-medium text-[#EF4444]">{unsupported}</p>
       ) : null}
+    </div>
+  );
+}
+
+/** 视频缩略图：加载视频后在浏览器内 seek 到起始帧并截取一帧显示 */
+function VideoThumbnail({ src, className }: { src: string; className?: string }) {
+  const [thumb, setThumb] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.muted = true;
+    video.crossOrigin = 'anonymous';
+    video.src = src;
+
+    const onLoaded = () => {
+      try {
+        // 取总时长 10%（最多 2 秒）处的一帧，避免首帧黑屏
+        const target = Math.min(2, Math.max(0.1, video.duration * 0.1));
+        video.currentTime = target;
+      } catch {
+        /* 忽略 seek 异常 */
+      }
+    };
+    const onSeeked = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 200;
+        canvas.height = 112;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        if (!cancelled) setThumb(canvas.toDataURL('image/jpeg', 0.72));
+      } catch {
+        /* 抽帧失败时不显示缩略图 */
+      }
+    };
+    video.addEventListener('loadeddata', onLoaded);
+    video.addEventListener('seeked', onSeeked);
+    video.addEventListener('error', () => setThumb(null));
+    video.load();
+
+    return () => {
+      cancelled = true;
+      video.removeEventListener('loadeddata', onLoaded);
+      video.removeEventListener('seeked', onSeeked);
+    };
+  }, [src]);
+
+  return thumb ? (
+    <img
+      src={thumb}
+      alt=""
+      className={cn(
+        'shrink-0 rounded-none border border-[#E2E8F0] bg-slate-200 object-cover',
+        className,
+      )}
+    />
+  ) : (
+    <div
+      className={cn(
+        'flex shrink-0 items-center justify-center rounded-none border border-[#E2E8F0] bg-slate-100 text-[#94A3B8]',
+        className,
+      )}
+    >
+      <FileVideo className="size-3.5" />
     </div>
   );
 }
