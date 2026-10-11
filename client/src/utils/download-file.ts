@@ -135,11 +135,18 @@ export async function downloadFilesAsZip(
   const zip = new JSZip();
   const usedNames = new Set<string>();
   let failCount = 0;
+  const totalFiles = entries.length;
+  let doneFiles = 0;
 
+  // 拉取阶段：按文件数 + 当前文件内进度回报（占整体 90%）
   await Promise.all(
     entries.map(async (entry): Promise<void> => {
       try {
-        const blob = await fetchBlobWithProgress(entry.url);
+        const blob = await fetchBlobWithProgress(entry.url, (pct) => {
+          onProgress?.(
+            Math.round(((doneFiles + pct / 100) / totalFiles) * 90),
+          );
+        });
         if (!blob) throw new Error('empty');
         let name = entry.name;
         if (usedNames.has(name)) {
@@ -154,6 +161,8 @@ export async function downloadFilesAsZip(
         zip.file(name, blob);
       } catch {
         failCount += 1;
+      } finally {
+        doneFiles += 1;
       }
     }),
   );
@@ -163,11 +172,13 @@ export async function downloadFilesAsZip(
     throw new Error('全部文件下载失败');
   }
 
+  // 压缩阶段：占整体 90-100%
   const zipBlob = await zip.generateAsync({
     type: 'blob',
     compression: 'DEFLATE',
     compressionOptions: { level: 6 },
-    onUpdate: (meta) => onProgress?.(Math.round(meta.percent)),
+    onUpdate: (meta) =>
+      onProgress?.(Math.round(90 + meta.percent * 0.1)),
   });
   const saved = await saveFile(zipBlob, zipName);
   return { okCount, failCount, cancelled: !saved };
