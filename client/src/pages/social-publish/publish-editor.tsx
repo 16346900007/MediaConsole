@@ -32,7 +32,6 @@ import {
   getPublishTask,
   listAccountGroups,
   listAccounts,
-  quickAddTopicTags,
   submitPublishTask,
   updatePublishTask,
   uploadPublishFile,
@@ -88,7 +87,6 @@ interface MediaUploadItem {
 const PLATFORM_EXTRA_FIELDS: Record<string, ExtraField[]> = {
   bilibili: [
     { key: 'tid', label: '分区ID', type: 'text' },
-    { key: 'tag', label: '标签（逗号分隔）', type: 'text' },
     {
       key: 'copyright',
       label: '自制/转载',
@@ -121,7 +119,7 @@ const PLATFORM_EXTRA_FIELDS: Record<string, ExtraField[]> = {
     },
   ],
   kuaishou: [{ key: 'category', label: '分类', type: 'text' }],
-  shipinhao: [{ key: 'shortTitle', label: '短标题（封面显示 6-16 字）', type: 'text' }],
+  shipinhao: [],
 };
 
 const VIDEO_ACCEPT = 'video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov';
@@ -353,6 +351,23 @@ export default function PublishEditor() {
   /* 保存/提交 */
   const buildInput = (): PublishTaskInput => {
     if (!publishType) throw new Error('缺少发布类型');
+    // 平台特有字段：B站标签与话题同一概念，自动取话题值（无需单独填写）
+    const fields: Record<string, Record<string, unknown>> = {};
+    for (const [plat, vals] of Object.entries(platformFields)) {
+      fields[plat] = { ...vals };
+    }
+    if (targets.some((t) => t.platform === 'bilibili')) {
+      fields.bilibili = {
+        ...(fields.bilibili ?? {}),
+        tag: topics.join(' '),
+      };
+    }
+    if (targets.some((t) => t.platform === 'shipinhao')) {
+      fields.shipinhao = {
+        ...(fields.shipinhao ?? {}),
+        shortTitle: title,
+      };
+    }
     return {
       publishType,
       title,
@@ -363,7 +378,7 @@ export default function PublishEditor() {
       mediaFileKeys: mediaItems
         .filter((it: MediaUploadItem): boolean => it.status === 'done' && !!it.fileKey)
         .map((it: MediaUploadItem): string => it.fileKey!),
-      platformFields,
+      platformFields: fields,
       visibility,
       targets,
     };
@@ -1670,11 +1685,7 @@ function TopicCapsuleInput({
     const t = raw.trim().replace(/^#+/, '');
     if (!t) return;
     if (value.length >= 15) return;
-    if (!value.includes(t)) {
-      onChange([...value, t]);
-      // 话题=标签通用适配：手动输入的话题同步入库（常用分组），失败静默不影响表单
-      void quickAddTopicTags([t]).catch(() => undefined);
-    }
+    onChange(value.includes(t) ? value : [...value, t]);
     setDraft('');
   };
 

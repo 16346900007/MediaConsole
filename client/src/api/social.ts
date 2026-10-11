@@ -109,15 +109,6 @@ export async function deleteTopicTag(id: string): Promise<void> {
   });
 }
 
-/** 快捷入库：发布表单输入的话题写入「常用」分组（话题=标签通用适配，自动创建分组） */
-export async function quickAddTopicTags(names: string[]): Promise<void> {
-  await axiosForBackend({
-    url: '/api/social/topics/quick-add',
-    method: 'POST',
-    data: { names },
-  });
-}
-
 /* ---------- 位置联想（发布页，高德） ---------- */
 
 /** 按关键词搜索地址/POI */

@@ -123,41 +123,4 @@ export class TopicsService {
       .where(eq(socialTopicTags.groupId, groupId));
     return row?.count ?? 0;
   }
-
-  /** 默认分组名（发布表单手动输入的话题自动入库） */
-  private readonly defaultGroupName = '常用';
-
-  /**
-   * 快捷入库：发布表单手动输入的话题写入「常用」分组（无则自动创建）。
-   * 话题与标签同一概念，表单输入与话题库双向打通，避免两处重复填写。
-   */
-  async quickAdd(names: string[]): Promise<TopicGroup> {
-    let [group] = await this.db
-      .select()
-      .from(socialTopicGroups)
-      .where(eq(socialTopicGroups.name, this.defaultGroupName));
-    if (!group) {
-      const created = await this.db
-        .insert(socialTopicGroups)
-        .values({ name: this.defaultGroupName })
-        .onConflictDoNothing()
-        .returning();
-      group = created[0] ?? (await this.db
-        .select()
-        .from(socialTopicGroups)
-        .where(eq(socialTopicGroups.name, this.defaultGroupName)))[0];
-    }
-    const valid = [...new Set(
-      (names ?? [])
-        .map((n) => n.trim().replace(/^#+/, ''))
-        .filter(Boolean),
-    )];
-    for (const name of valid) {
-      await this.db
-        .insert(socialTopicTags)
-        .values({ groupId: group.id, name })
-        .onConflictDoNothing();
-    }
-    return { id: group.id, name: group.name, tags: valid };
-  }
 }
