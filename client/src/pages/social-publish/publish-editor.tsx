@@ -1252,51 +1252,53 @@ function AccountPickerDialog({
         </DialogHeader>
 
         <div className="flex">
-          {/* 左侧分组侧边筛选 */}
+          {/* 左侧分组侧边筛选（样式对齐账号页 GroupSidebar） */}
           {groups.length > 0 && (
-            <aside className="w-44 shrink-0 border-r border-[#E2E8F0] p-3">
-              <p className="mb-2 px-2 text-[10px] font-black uppercase tracking-tight text-[#94A3B8]">
-                分组
-              </p>
-              <button
-                type="button"
-                onClick={() => setGroupFilter(null)}
-                className={cn(
-                  'flex w-full items-center justify-between rounded-md px-2 py-2 text-sm transition-colors',
-                  groupFilter === null
-                    ? 'bg-[#EFF4FF] font-semibold text-[#0033A0]'
-                    : 'font-medium text-[#475569] hover:bg-slate-100',
-                )}
-              >
-                全部分组
-              </button>
-              {groups.map((g) => (
+            <aside className="w-56 shrink-0 border-r border-[#E2E8F0] bg-white py-4">
+              <p className="px-4 text-sm font-bold text-[#1A1A1A]">分组</p>
+              <nav className="mt-2 flex flex-col gap-0.5 overflow-y-auto px-2">
                 <button
-                  key={g.name}
                   type="button"
-                  onClick={() => setGroupFilter(groupFilter === g.name ? null : g.name)}
+                  onClick={() => setGroupFilter(null)}
                   className={cn(
-                    'flex w-full items-center justify-between rounded-md px-2 py-2 text-sm transition-colors',
-                    groupFilter === g.name
+                    'flex items-center justify-between rounded-sm px-2 py-1.5 text-sm transition-colors',
+                    groupFilter === null
                       ? 'bg-[#EFF4FF] font-semibold text-[#0033A0]'
                       : 'font-medium text-[#475569] hover:bg-slate-100',
                   )}
                 >
-                  <span className="min-w-0 truncate">{g.name}</span>
-                  {g.count !== undefined && (
-                    <span
-                      className={cn(
-                        'ml-2 shrink-0 font-mono text-[10px]',
-                        groupFilter === g.name
-                          ? 'text-[#0033A0]'
-                          : 'text-[#94A3B8]',
-                      )}
-                    >
-                      {g.count}
-                    </span>
-                  )}
+                  <span className="truncate">全部分组</span>
                 </button>
-              ))}
+                {groups.map((g) => (
+                  <button
+                    key={g.name}
+                    type="button"
+                    onClick={() => setGroupFilter(groupFilter === g.name ? null : g.name)}
+                    className={cn(
+                      'flex items-center justify-between rounded-sm px-2 py-1.5 text-sm transition-colors',
+                      groupFilter === g.name
+                        ? 'bg-[#EFF4FF] font-semibold text-[#0033A0]'
+                        : 'font-medium text-[#475569] hover:bg-slate-100',
+                    )}
+                  >
+                    <span className="min-w-0 flex-1 truncate text-left">
+                      {g.name}
+                    </span>
+                    {g.count !== undefined && (
+                      <span
+                        className={cn(
+                          'ml-2 shrink-0 font-mono text-[10px]',
+                          groupFilter === g.name
+                            ? 'text-[#0033A0]'
+                            : 'text-[#94A3B8]',
+                        )}
+                      >
+                        {g.count}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </nav>
             </aside>
           )}
 
