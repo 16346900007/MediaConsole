@@ -399,7 +399,7 @@ export default function PublishEditor() {
   const selectedPlatforms = [...new Set(targets.map((t) => t.platform))];
 
   return (
-    <div className="px-8 pt-8 pb-20 space-y-8">
+    <div className="flex min-h-[calc(100vh-56px)] flex-col gap-8 px-8 pt-8">
       <button
         type="button"
         onClick={() => navigate('/publish')}
@@ -887,15 +887,8 @@ export default function PublishEditor() {
         onConfirm={(next) => setTargets(next)}
       />
 
-      {/* 底部操作栏：仅立即发布模式固定，定时发布时随页面流 */}
-      <div
-        className={cn(
-          '-mx-8 flex items-center justify-end gap-2 border-t border-[#E2E8F0] bg-white px-8 py-3',
-          scheduleEnabled
-            ? ''
-            : 'sticky bottom-0 z-30 shadow-[0_-2px_8px_rgba(0,0,0,0.06)]',
-        )}
-      >
+      {/* 底部固定操作栏（始终固定到底部） */}
+      <div className="mt-auto sticky bottom-0 z-30 -mx-8 flex items-center justify-end gap-2 border-t border-[#E2E8F0] bg-white px-8 py-3 shadow-[0_-2px_8px_rgba(0,0,0,0.06)]">
         <Button
           type="button"
           variant="outline"
