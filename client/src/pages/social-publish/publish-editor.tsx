@@ -1241,7 +1241,7 @@ function AccountPickerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl rounded-none border-[#E2E8F0] p-0 shadow-md">
+      <DialogContent className="max-w-4xl rounded-none border-[#E2E8F0] p-0 shadow-md">
         <DialogHeader className="border-b border-[#E2E8F0] p-6 pb-4">
           <DialogTitle className="text-base font-black text-[#1A1A1A]">
             选择账号
@@ -1251,128 +1251,150 @@ function AccountPickerDialog({
           </p>
         </DialogHeader>
 
-        {/* 平台筛选 */}
-        <div className="flex flex-wrap gap-2.5 border-b border-[#E2E8F0] px-6 py-3">
-          <button
-            type="button"
-            onClick={() => setPlatformFilter(null)}
-            className={pillClass(platformFilter === null)}
-          >
-            全部平台
-          </button>
-          {platforms.map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() =>
-                setPlatformFilter(platformFilter === p ? null : p)
-              }
-              className={pillClass(platformFilter === p)}
-            >
-              <img
-                src={PLATFORM_LOGOS[p]}
-                alt=""
-                className="size-4 rounded-none"
-              />
-              {PLATFORM_MAP[p as keyof typeof PLATFORM_MAP]?.name ?? p}
-            </button>
-          ))}
-        </div>
-
-        {/* 分组筛选 */}
-        {groups.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2.5 border-b border-[#E2E8F0] px-6 py-3">
-            <span className="text-[10px] font-black uppercase tracking-tight text-[#94A3B8]">
-              分组
-            </span>
-            <button
-              type="button"
-              onClick={() => setGroupFilter(null)}
-              className={pillClass(groupFilter === null)}
-            >
-              全部分组
-            </button>
-            {groups.map((g) => (
+        <div className="flex">
+          {/* 左侧分组侧边筛选 */}
+          {groups.length > 0 && (
+            <aside className="w-44 shrink-0 border-r border-[#E2E8F0] p-3">
+              <p className="mb-2 px-2 text-[10px] font-black uppercase tracking-tight text-[#94A3B8]">
+                分组
+              </p>
               <button
-                key={g.name}
                 type="button"
-                onClick={() => setGroupFilter(groupFilter === g.name ? null : g.name)}
-                className={pillClass(groupFilter === g.name)}
-              >
-                {g.name}
-                {g.count !== undefined && (
-                  <span className="text-[10px] font-bold opacity-70">
-                    {g.count}
-                  </span>
+                onClick={() => setGroupFilter(null)}
+                className={cn(
+                  'flex w-full items-center justify-between rounded-md px-2 py-2 text-sm transition-colors',
+                  groupFilter === null
+                    ? 'bg-[#EFF4FF] font-semibold text-[#0033A0]'
+                    : 'font-medium text-[#475569] hover:bg-slate-100',
                 )}
+              >
+                全部分组
               </button>
-            ))}
-          </div>
-        )}
+              {groups.map((g) => (
+                <button
+                  key={g.name}
+                  type="button"
+                  onClick={() => setGroupFilter(groupFilter === g.name ? null : g.name)}
+                  className={cn(
+                    'flex w-full items-center justify-between rounded-md px-2 py-2 text-sm transition-colors',
+                    groupFilter === g.name
+                      ? 'bg-[#EFF4FF] font-semibold text-[#0033A0]'
+                      : 'font-medium text-[#475569] hover:bg-slate-100',
+                  )}
+                >
+                  <span className="min-w-0 truncate">{g.name}</span>
+                  {g.count !== undefined && (
+                    <span
+                      className={cn(
+                        'ml-2 shrink-0 font-mono text-[10px]',
+                        groupFilter === g.name
+                          ? 'text-[#0033A0]'
+                          : 'text-[#94A3B8]',
+                      )}
+                    >
+                      {g.count}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </aside>
+          )}
 
-        {/* 账号勾选列表 */}
-        <div className="max-h-[52vh] min-h-[260px] overflow-y-auto px-6 py-4">
-          {byPlatform.size === 0 ? (
-            <p className="py-8 text-center text-[12px] font-medium text-[#94A3B8]">
-              无符合条件的账号
-            </p>
-          ) : (
-            [...byPlatform.entries()].map(([platform, list]) => (
-              <div key={platform} className="mb-5 last:mb-0">
-                <p className="mb-2.5 flex items-center gap-2 text-[12px] font-black uppercase tracking-tight text-[#0033A0]">
+          {/* 右侧：平台筛选 + 账号列表 */}
+          <div className="min-w-0 flex-1">
+            {/* 平台筛选 */}
+            <div className="flex flex-wrap gap-2.5 border-b border-[#E2E8F0] px-6 py-3">
+              <button
+                type="button"
+                onClick={() => setPlatformFilter(null)}
+                className={pillClass(platformFilter === null)}
+              >
+                全部平台
+              </button>
+              {platforms.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() =>
+                    setPlatformFilter(platformFilter === p ? null : p)
+                  }
+                  className={pillClass(platformFilter === p)}
+                >
                   <img
-                    src={PLATFORM_LOGOS[platform]}
+                    src={PLATFORM_LOGOS[p]}
                     alt=""
                     className="size-4 rounded-none"
                   />
-                  {PLATFORM_MAP[platform as keyof typeof PLATFORM_MAP]?.name ?? platform}
+                  {PLATFORM_MAP[p as keyof typeof PLATFORM_MAP]?.name ?? p}
+                </button>
+              ))}
+            </div>
+
+            {/* 账号勾选列表 */}
+            <div className="max-h-[52vh] min-h-[260px] overflow-y-auto px-6 py-4">
+              {byPlatform.size === 0 ? (
+                <p className="py-8 text-center text-[12px] font-medium text-[#94A3B8]">
+                  无符合条件的账号
                 </p>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {list.map((acct) => {
-                    const checked = draft.includes(acct.id);
-                    return (
-                      <label
-                        key={acct.id}
-                        className={cn(
-                          'flex cursor-pointer items-center gap-3 rounded-none border px-3 py-2 transition-colors',
-                          checked
-                            ? 'border-[#0033A0] bg-[#EFF4FF]'
-                            : 'border-[#E2E8F0] hover:bg-slate-50',
-                        )}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggle(acct.id)}
-                          className="size-4 accent-[#0033A0]"
-                        />
-                        {acct.avatar ? (
-                          <img
-                            src={`/avatar-proxy?url=${encodeURIComponent(acct.avatar)}`}
-                            referrerPolicy="no-referrer"
-                            alt=""
-                            className="size-7 shrink-0 rounded-none object-cover"
-                          />
-                        ) : (
-                          <span className="flex size-7 shrink-0 items-center justify-center rounded-none bg-[#F1F5F9] text-[10px] font-black text-[#475569]">
-                            {acct.accountName.slice(0, 1)}
-                          </span>
-                        )}
-                        <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-[#1A1A1A]">
-                          {acct.accountName}
-                        </span>
-                        {acct.groupName && (
-                          <span className="shrink-0 rounded-sm bg-[#EFF4FF] px-1.5 py-0.5 text-[10px] font-bold text-[#0033A0]">
-                            {acct.groupName}
-                          </span>
-                        )}
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            ))
-          )}
+              ) : (
+                [...byPlatform.entries()].map(([platform, list]) => (
+                  <div key={platform} className="mb-5 last:mb-0">
+                    <p className="mb-2.5 flex items-center gap-2 text-[12px] font-black uppercase tracking-tight text-[#0033A0]">
+                      <img
+                        src={PLATFORM_LOGOS[platform]}
+                        alt=""
+                        className="size-4 rounded-none"
+                      />
+                      {PLATFORM_MAP[platform as keyof typeof PLATFORM_MAP]?.name ?? platform}
+                    </p>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {list.map((acct) => {
+                        const checked = draft.includes(acct.id);
+                        return (
+                          <label
+                            key={acct.id}
+                            className={cn(
+                              'flex cursor-pointer items-center gap-3 rounded-none border px-3 py-2 transition-colors',
+                              checked
+                                ? 'border-[#0033A0] bg-[#EFF4FF]'
+                                : 'border-[#E2E8F0] hover:bg-slate-50',
+                            )}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggle(acct.id)}
+                              className="size-4 accent-[#0033A0]"
+                            />
+                            {acct.avatar ? (
+                              <img
+                                src={`/avatar-proxy?url=${encodeURIComponent(acct.avatar)}`}
+                                referrerPolicy="no-referrer"
+                                alt=""
+                                className="size-7 shrink-0 rounded-none object-cover"
+                              />
+                            ) : (
+                              <span className="flex size-7 shrink-0 items-center justify-center rounded-none bg-[#F1F5F9] text-[10px] font-black text-[#475569]">
+                                {acct.accountName.slice(0, 1)}
+                              </span>
+                            )}
+                            <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-[#1A1A1A]">
+                              {acct.accountName}
+                            </span>
+                            {acct.groupName && (
+                              <span className="shrink-0 rounded-sm bg-[#EFF4FF] px-1.5 py-0.5 text-[10px] font-bold text-[#0033A0]">
+                                {acct.groupName}
+                              </span>
+                            )}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
 
         {/* 底部：已选计数 + 取消/确认 */}
