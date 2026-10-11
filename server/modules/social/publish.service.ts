@@ -38,7 +38,11 @@ export class PublishService implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit(): void {
     // 本地定时发布：每 30s 扫描到期的 scheduled 发布单，串行执行
-    this.timer = setInterval(() => void this.scanDue(), 30_000);
+    this.timer = setInterval(() => {
+      void this.scanDue().catch((error) => {
+        this.logger.error(`[publish-sched] 调度异常：${error instanceof Error ? error.message : String(error)}`);
+      });
+    }, 30_000);
     void this.scanDue();
     this.logger.log('发布调度器已启动（30s 轮询本地定时任务）');
   }
@@ -189,32 +193,37 @@ export class PublishService implements OnModuleInit, OnModuleDestroy {
 
   /** 调度扫描：scheduled 且到点 → 立即执行 */
   private async scanDue(): Promise<void> {
-    const now = new Date();
-    const due = await this.db
-      .select({ id: socialPublishTasks.id })
-      .from(socialPublishTasks)
-      .where(
-        and(
-          eq(socialPublishTasks.status, 'scheduled'),
-          lte(socialPublishTasks.scheduledAt, now),
-        ),
-      )
-      .limit(5);
-    for (const row of due) {
-      if (this.running.has(row.id)) continue;
-      this.running.add(row.id);
-      // 状态预占（防并发重复执行）
-      const claimed = await this.db
-        .update(socialPublishTasks)
-        .set({ status: 'publishing' })
-        .where(and(eq(socialPublishTasks.id, row.id), eq(socialPublishTasks.status, 'scheduled')))
-        .returning({ id: socialPublishTasks.id });
-      if (claimed.length) {
-        this.logger.log(`[publish-sched] 定时发布到点 ${row.id}`);
-        void this.executeAndFinalize(row.id);
-      } else {
-        this.running.delete(row.id);
+    try {
+      const now = new Date();
+      const due = await this.db
+        .select({ id: socialPublishTasks.id })
+        .from(socialPublishTasks)
+        .where(
+          and(
+            eq(socialPublishTasks.status, 'scheduled'),
+            lte(socialPublishTasks.scheduledAt, now),
+          ),
+        )
+        .limit(5);
+      for (const row of due) {
+        if (this.running.has(row.id)) continue;
+        this.running.add(row.id);
+        // 状态预占（防并发重复执行）
+        const claimed = await this.db
+          .update(socialPublishTasks)
+          .set({ status: 'publishing' })
+          .where(and(eq(socialPublishTasks.id, row.id), eq(socialPublishTasks.status, 'scheduled')))
+          .returning({ id: socialPublishTasks.id });
+        if (claimed.length) {
+          this.logger.log(`[publish-sched] 定时发布到点 ${row.id}`);
+          void this.executeAndFinalize(row.id);
+        } else {
+          this.running.delete(row.id);
+        }
       }
+    } catch (error) {
+      // 数据库瞬时不可达等异常不允许终止调度循环（防止进程崩溃）
+      this.logger.error(`[publish-sched] 扫描失败：${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

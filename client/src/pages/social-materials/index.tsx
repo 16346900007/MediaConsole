@@ -53,7 +53,7 @@ import MaterialCardMenu from './material-card-menu';
 import { showConfirm } from '@lark-apaas/client-toolkit';
 import { Image } from '@client/src/components/ui/image';
 import VideoThumbnail from '@/components/VideoThumbnail';
-import { downloadFileByBlob } from '@client/src/utils/download-file';
+import { downloadFileByBlob, downloadFilesAsZip } from '@client/src/utils/download-file';
 
 const TYPE_FILTERS: { value: 'all' | MaterialType; label: string }[] = [
   { value: 'all', label: '全部' },
@@ -194,21 +194,33 @@ const SocialMaterials: FC = () => {
       selectedIds.has(m.id),
     );
     if (targets.length === 0) return;
-    let failed = 0;
-    await Promise.all(
-      targets.map(async (item: MaterialItem): Promise<void> => {
-        try {
-          await downloadFileByBlob(item.fileUrl, item.name);
-        } catch {
-          failed += 1;
-        }
-      }),
-    );
-    toast.success(
-      failed > 0
-        ? `已下载 ${targets.length - failed} 个，${failed} 个失败`
-        : `已开始下载 ${targets.length} 个素材`,
-    );
+    try {
+      if (targets.length === 1) {
+        await downloadFileByBlob(targets[0].fileUrl, targets[0].name);
+        toast.success('已开始下载');
+        return;
+      }
+      const zipName = `素材下载_${new Date()
+        .toISOString()
+        .slice(0, 10)
+        .replace(/-/g, '')}_${targets.length}个.zip`;
+      const { okCount, failCount } = await downloadFilesAsZip(
+        targets.map((m: MaterialItem) => ({
+          url: m.fileUrl,
+          name: m.name,
+        })),
+        zipName,
+      );
+      toast.success(
+        failCount > 0
+          ? `已打包 ${okCount} 个素材，${failCount} 个失败`
+          : `已打包 ${okCount} 个素材`,
+      );
+    } catch (error: unknown) {
+      toast.error(
+        `下载失败：${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   };
 
   const handleBatchMove = async (): Promise<void> => {

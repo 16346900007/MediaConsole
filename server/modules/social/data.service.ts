@@ -198,9 +198,13 @@ export class DataService {
 
     for (const acct of targets) this.syncing.add(acct.id);
     // 异步执行，不阻塞请求
-    void this.runSync(targets).finally(() => {
-      for (const acct of targets) this.syncing.delete(acct.id);
-    });
+    void this.runSync(targets)
+      .catch((error) => {
+        this.logger.error(`[data-sync] 同步异常：${error instanceof Error ? error.message : String(error)}`);
+      })
+      .finally(() => {
+        for (const acct of targets) this.syncing.delete(acct.id);
+      });
     return { started: true, accounts: targets.length };
   }
 

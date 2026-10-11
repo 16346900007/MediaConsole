@@ -51,6 +51,7 @@
     "dotenv": "^17.2.2",
     "drizzle-orm": "0.44.6",
     "hbs": "^4.2.0",
+    "jszip": "^3.10.2",
     "minio": "^8.0.7",
     "playwright": "^1.64.0",
     "react-dropzone": "^20.1.3",
