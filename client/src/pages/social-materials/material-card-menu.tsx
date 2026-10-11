@@ -30,6 +30,7 @@ import {
 import { batchMoveMaterials, deleteMaterial } from '@client/src/api/social';
 import type { MaterialGroup, MaterialItem } from '@shared/api.interface';
 import { showConfirm } from '@lark-apaas/client-toolkit';
+import { downloadFileByBlob } from '@client/src/utils/download-file';
 
 interface MaterialCardMenuProps {
   item: MaterialItem;
@@ -46,15 +47,14 @@ const MaterialCardMenu: FC<MaterialCardMenuProps> = ({
   const [targetGroup, setTargetGroup] = useState<string>('');
   const [moving, setMoving] = useState(false);
 
-  const handleDownload = (): void => {
-    const a = document.createElement('a');
-    a.href = item.fileUrl;
-    a.download = item.name;
-    a.target = '_blank';
-    a.rel = 'noopener noreferrer';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  const handleDownload = async (): Promise<void> => {
+    try {
+      await downloadFileByBlob(item.fileUrl, item.name);
+    } catch (error: unknown) {
+      toast.error(
+        `下载失败：${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   };
 
   const handleDelete = async (): Promise<void> => {

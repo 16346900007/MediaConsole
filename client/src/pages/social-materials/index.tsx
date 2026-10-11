@@ -53,6 +53,7 @@ import MaterialCardMenu from './material-card-menu';
 import { showConfirm } from '@lark-apaas/client-toolkit';
 import { Image } from '@client/src/components/ui/image';
 import VideoThumbnail from '@/components/VideoThumbnail';
+import { downloadFileByBlob } from '@client/src/utils/download-file';
 
 const TYPE_FILTERS: { value: 'all' | MaterialType; label: string }[] = [
   { value: 'all', label: '全部' },
@@ -188,24 +189,26 @@ const SocialMaterials: FC = () => {
     }
   };
 
-  const handleBatchDownload = (): void => {
+  const handleBatchDownload = async (): Promise<void> => {
     const targets = materials.filter((m: MaterialItem) =>
       selectedIds.has(m.id),
     );
     if (targets.length === 0) return;
-    targets.forEach((item: MaterialItem, index: number): void => {
-      setTimeout((): void => {
-        const a = document.createElement('a');
-        a.href = item.fileUrl;
-        a.download = item.name;
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }, index * 200);
-    });
-    toast.success(`已开始下载 ${targets.length} 个素材`);
+    let failed = 0;
+    await Promise.all(
+      targets.map(async (item: MaterialItem): Promise<void> => {
+        try {
+          await downloadFileByBlob(item.fileUrl, item.name);
+        } catch {
+          failed += 1;
+        }
+      }),
+    );
+    toast.success(
+      failed > 0
+        ? `已下载 ${targets.length - failed} 个，${failed} 个失败`
+        : `已开始下载 ${targets.length} 个素材`,
+    );
   };
 
   const handleBatchMove = async (): Promise<void> => {
