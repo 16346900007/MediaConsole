@@ -104,6 +104,8 @@ export default function PublishEditor() {
   const [uploading, setUploading] = useState(false);
   /** 拖拽悬停状态：'media' 主体文件框 / 'cover' 封面框 */
   const [dragOver, setDragOver] = useState<'media' | 'cover' | null>(null);
+  /** 视频预览开关 */
+  const [videoPreview, setVideoPreview] = useState(false);
 
   /* 加载已有发布单 */
   const load = useCallback(async () => {
@@ -196,7 +198,12 @@ export default function PublishEditor() {
   /* 文件上传 */
   const handleFiles = async (files: FileList | null, kind: 'media' | 'cover') => {
     if (!files?.length) return;
-    const list = Array.from(files);
+    let list = Array.from(files);
+    // 视频仅支持单个：多余文件忽略并提示
+    if (kind === 'media' && publishType === 'video' && list.length > 1) {
+      setError('视频仅支持单个文件，已忽略多余文件');
+      list = [list[0]];
+    }
     // 类型校验（drop 不受 input accept 约束，需手动校验）
     const allowed =
       kind === 'cover'
@@ -237,11 +244,14 @@ export default function PublishEditor() {
   };
 
   /* 拖拽上传事件 */
-  const handleDragOver = (kind: 'media' | 'cover') => (e: React.DragEvent) => {
+  const handleDragEnter = (kind: 'media' | 'cover') => (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(kind);
   };
-  const handleDragLeave = () => setDragOver(null);
+  const handleDragLeave = (kind: 'media' | 'cover') => (e: React.DragEvent) => {
+    // 只有真正离开上传框才清除悬停态（避免在框内子元素间移动误触发）
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(null);
+  };
   const handleDrop = (kind: 'media' | 'cover') => (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(null);
@@ -379,37 +389,85 @@ export default function PublishEditor() {
                 ? 'border-2 border-[#0033A0] bg-[#EFF4FF]'
                 : 'border border-dashed border-[#E2E8F0] hover:border-[#0033A0]',
             )}
-            onDragOver={handleDragOver('media')}
-            onDragLeave={handleDragLeave}
+            onDragEnter={handleDragEnter('media')}
+            onDragOver={(e) => e.preventDefault()}
+            onDragLeave={handleDragLeave('media')}
             onDrop={handleDrop('media')}
             onClick={() => document.getElementById('publish-media-input')?.click()}
           >
             {mediaFileKeys.length > 0 ? (
-              <div className="flex w-full items-center justify-between gap-3 px-5 py-4">
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <FileVideo className="size-5 shrink-0 text-[#0033A0]" />
-                  <div className="min-w-0">
+              videoPreview ? (
+                <div className="flex w-full flex-col gap-2 px-4 py-3">
+                  <video
+                    src={`/api/social/files/${mediaFileKeys[0]}`}
+                    controls
+                    className="max-h-[160px] w-full rounded-none border border-[#E2E8F0] bg-black object-contain"
+                  />
+                  <div className="flex items-center justify-between">
                     <p className="truncate text-[12px] font-bold text-[#1A1A1A]">
                       {mediaNames[0] ?? mediaFileKeys[0]}
                     </p>
-                    <p className="text-[10px] font-medium text-[#94A3B8]">
-                      {uploading ? '上传中…' : '可点击或拖拽替换'}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="text-[12px] font-bold text-[#0033A0] hover:underline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setVideoPreview(false);
+                        }}
+                      >
+                        收起预览
+                      </button>
+                      <button
+                        type="button"
+                        className="flex size-6 items-center justify-center rounded-none bg-[#FEF2F2] text-[#EF4444] transition-colors hover:bg-[#EF4444] hover:text-white"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMediaFileKeys([]);
+                          setMediaNames([]);
+                          setVideoPreview(false);
+                        }}
+                        title="移除视频"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  className="flex size-6 shrink-0 items-center justify-center rounded-none bg-[#FEF2F2] text-[#EF4444] transition-colors hover:bg-[#EF4444] hover:text-white"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setMediaFileKeys([]);
-                    setMediaNames([]);
-                  }}
-                  title="移除视频"
-                >
-                  <Trash2 className="size-3.5" />
-                </button>
-              </div>
+              ) : (
+                <div className="flex w-full items-center justify-between gap-3 px-5 py-4">
+                  <button
+                    type="button"
+                    className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setVideoPreview(true);
+                    }}
+                  >
+                    <FileVideo className="size-5 shrink-0 text-[#0033A0]" />
+                    <div className="min-w-0">
+                      <p className="truncate text-[12px] font-bold text-[#1A1A1A]">
+                        {mediaNames[0] ?? mediaFileKeys[0]}
+                      </p>
+                      <p className="text-[10px] font-medium text-[#0033A0]">
+                        点击预览 · 可点击或拖拽替换
+                      </p>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    className="flex size-6 shrink-0 items-center justify-center rounded-none bg-[#FEF2F2] text-[#EF4444] transition-colors hover:bg-[#EF4444] hover:text-white"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMediaFileKeys([]);
+                      setMediaNames([]);
+                    }}
+                    title="移除视频"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
+                </div>
+              )
             ) : (
               <>
                 {uploading ? (
@@ -450,8 +508,9 @@ export default function PublishEditor() {
                 ? 'border-2 border-[#0033A0] bg-[#EFF4FF]'
                 : 'border border-dashed border-[#E2E8F0] hover:border-[#0033A0]',
             )}
-            onDragOver={handleDragOver('media')}
-            onDragLeave={handleDragLeave}
+            onDragEnter={handleDragEnter('media')}
+            onDragOver={(e) => e.preventDefault()}
+            onDragLeave={handleDragLeave('media')}
             onDrop={handleDrop('media')}
             onClick={() => document.getElementById('publish-media-input')?.click()}
           >
@@ -526,8 +585,9 @@ export default function PublishEditor() {
                 ? 'border-2 border-[#0033A0] bg-[#EFF4FF]'
                 : 'border border-dashed border-[#E2E8F0] hover:border-[#0033A0]',
             )}
-            onDragOver={handleDragOver('cover')}
-            onDragLeave={handleDragLeave}
+            onDragEnter={handleDragEnter('cover')}
+            onDragOver={(e) => e.preventDefault()}
+            onDragLeave={handleDragLeave('cover')}
             onDrop={handleDrop('cover')}
             onClick={() => document.getElementById('publish-cover-input')?.click()}
           >
