@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useDropzone } from 'react-dropzone';
 import { ArrowLeft, CalendarClock, FileVideo, ImagePlus, Save, Send, Trash2, Upload } from 'lucide-react';
 import type {
   PublishTask,
@@ -102,8 +103,6 @@ export default function PublishEditor() {
   const [scheduleAt, setScheduleAt] = useState<string>('');
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [uploading, setUploading] = useState(false);
-  /** 拖拽悬停状态：'media' 主体文件框 / 'cover' 封面框 */
-  const [dragOver, setDragOver] = useState<'media' | 'cover' | null>(null);
   /** 视频预览开关 */
   const [videoPreview, setVideoPreview] = useState(false);
 
@@ -196,7 +195,7 @@ export default function PublishEditor() {
   };
 
   /* 文件上传 */
-  const handleFiles = async (files: FileList | null, kind: 'media' | 'cover') => {
+  const handleFiles = async (files: File[] | null, kind: 'media' | 'cover') => {
     if (!files?.length) return;
     let list = Array.from(files);
     // 视频仅支持单个：多余文件忽略并提示
@@ -243,20 +242,22 @@ export default function PublishEditor() {
     }
   };
 
-  /* 拖拽上传事件 */
-  const handleDragEnter = (kind: 'media' | 'cover') => (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(kind);
-  };
-  const handleDragLeave = (kind: 'media' | 'cover') => (e: React.DragEvent) => {
-    // 只有真正离开上传框才清除悬停态（避免在框内子元素间移动误触发）
-    if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(null);
-  };
-  const handleDrop = (kind: 'media' | 'cover') => (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(null);
-    void handleFiles(e.dataTransfer.files, kind);
-  };
+  /* 三个上传框的 react-dropzone 实例（内部处理 dragenter/dragleave 状态，isDragActive 即悬停提示） */
+  const videoDrop = useDropzone({
+    accept: { 'video/*': ['.mp4', '.webm', '.mov'] },
+    multiple: false,
+    onDrop: (files) => void handleFiles(files, 'media'),
+  });
+  const imageDrop = useDropzone({
+    accept: { 'image/*': ['.jpg', '.jpeg', '.png', '.webp', '.gif'] },
+    multiple: true,
+    onDrop: (files) => void handleFiles(files, 'media'),
+  });
+  const coverDrop = useDropzone({
+    accept: { 'image/*': ['.jpg', '.jpeg', '.png', '.webp', '.gif'] },
+    multiple: false,
+    onDrop: (files) => void handleFiles(files, 'cover'),
+  });
 
   /* 保存/提交 */
   const buildInput = (): PublishTaskInput => {
@@ -383,17 +384,14 @@ export default function PublishEditor() {
 
         {publishType === 'video' && (
           <div
-            className={cn(
-              'relative flex min-h-[180px] cursor-pointer flex-col items-center justify-center gap-2 rounded-none border bg-[#F8FAFC] transition-colors',
-              dragOver === 'media'
-                ? 'border-2 border-[#0033A0] bg-[#EFF4FF]'
-                : 'border border-dashed border-[#E2E8F0] hover:border-[#0033A0]',
-            )}
-            onDragEnter={handleDragEnter('media')}
-            onDragOver={(e) => e.preventDefault()}
-            onDragLeave={handleDragLeave('media')}
-            onDrop={handleDrop('media')}
-            onClick={() => document.getElementById('publish-media-input')?.click()}
+            {...videoDrop.getRootProps({
+              className: cn(
+                'relative flex min-h-[180px] cursor-pointer flex-col items-center justify-center gap-2 rounded-none border bg-[#F8FAFC] transition-colors',
+                videoDrop.isDragActive
+                  ? 'border-2 border-[#0033A0] bg-[#EFF4FF]'
+                  : 'border border-dashed border-[#E2E8F0] hover:border-[#0033A0]',
+              ),
+            })}
           >
             {mediaFileKeys.length > 0 ? (
               videoPreview ? (
@@ -472,7 +470,7 @@ export default function PublishEditor() {
               <>
                 {uploading ? (
                   <Upload className="size-8 animate-pulse text-[#0033A0]" />
-                ) : dragOver === 'media' ? (
+                ) : videoDrop.isDragActive ? (
                   <Upload className="size-8 text-[#0033A0]" />
                 ) : (
                   <Upload className="size-8 text-[#94A3B8]" />
@@ -480,39 +478,30 @@ export default function PublishEditor() {
                 <span
                   className={cn(
                     'text-[12px] font-bold',
-                    dragOver === 'media' ? 'text-[#0033A0]' : 'text-[#475569]',
+                    videoDrop.isDragActive ? 'text-[#0033A0]' : 'text-[#475569]',
                   )}
                 >
                   {uploading
                     ? '上传中…'
-                    : dragOver === 'media'
+                    : videoDrop.isDragActive
                       ? '松开即上传'
                       : '点击或拖拽视频文件到此处（MP4/WebM/MOV）'}
                 </span>
               </>
             )}
-            <input
-              id="publish-media-input"
-              type="file"
-              accept={VIDEO_ACCEPT}
-              className="hidden"
-              onChange={(e) => void handleFiles(e.target.files, 'media')}
-            />
+            <input {...videoDrop.getInputProps()} className="hidden" />
           </div>
         )}
         {publishType === 'image' && (
           <div
-            className={cn(
-              'relative flex min-h-[120px] cursor-pointer flex-col items-center justify-center gap-2 rounded-none border bg-[#F8FAFC] transition-colors',
-              dragOver === 'media'
-                ? 'border-2 border-[#0033A0] bg-[#EFF4FF]'
-                : 'border border-dashed border-[#E2E8F0] hover:border-[#0033A0]',
-            )}
-            onDragEnter={handleDragEnter('media')}
-            onDragOver={(e) => e.preventDefault()}
-            onDragLeave={handleDragLeave('media')}
-            onDrop={handleDrop('media')}
-            onClick={() => document.getElementById('publish-media-input')?.click()}
+            {...imageDrop.getRootProps({
+              className: cn(
+                'relative flex min-h-[120px] cursor-pointer flex-col items-center justify-center gap-2 rounded-none border bg-[#F8FAFC] transition-colors',
+                imageDrop.isDragActive
+                  ? 'border-2 border-[#0033A0] bg-[#EFF4FF]'
+                  : 'border border-dashed border-[#E2E8F0] hover:border-[#0033A0]',
+              ),
+            })}
           >
             {mediaFileKeys.length > 0 ? (
               <div className="flex w-full flex-wrap items-center gap-3 p-4">
@@ -546,7 +535,7 @@ export default function PublishEditor() {
               <>
                 {uploading ? (
                   <Upload className="size-7 animate-pulse text-[#0033A0]" />
-                ) : dragOver === 'media' ? (
+                ) : imageDrop.isDragActive ? (
                   <Upload className="size-7 text-[#0033A0]" />
                 ) : (
                   <Upload className="size-7 text-[#94A3B8]" />
@@ -554,42 +543,32 @@ export default function PublishEditor() {
                 <span
                   className={cn(
                     'text-[12px] font-bold',
-                    dragOver === 'media' ? 'text-[#0033A0]' : 'text-[#475569]',
+                    imageDrop.isDragActive ? 'text-[#0033A0]' : 'text-[#475569]',
                   )}
                 >
                   {uploading
                     ? '上传中…'
-                    : dragOver === 'media'
+                    : imageDrop.isDragActive
                       ? '松开即上传'
                       : '点击或拖拽图片到此处（可多选，JPG/PNG/WebP/GIF）'}
                 </span>
               </>
             )}
-            <input
-              id="publish-media-input"
-              type="file"
-              accept={IMAGE_ACCEPT}
-              multiple
-              className="hidden"
-              onChange={(e) => void handleFiles(e.target.files, 'media')}
-            />
+            <input {...imageDrop.getInputProps()} className="hidden" />
           </div>
         )}
 
         {/* 封面 */}
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-[180px_1fr]">
           <div
-            className={cn(
-              'relative flex h-[100px] cursor-pointer items-center justify-center rounded-none border bg-[#F8FAFC] transition-colors',
-              dragOver === 'cover'
-                ? 'border-2 border-[#0033A0] bg-[#EFF4FF]'
-                : 'border border-dashed border-[#E2E8F0] hover:border-[#0033A0]',
-            )}
-            onDragEnter={handleDragEnter('cover')}
-            onDragOver={(e) => e.preventDefault()}
-            onDragLeave={handleDragLeave('cover')}
-            onDrop={handleDrop('cover')}
-            onClick={() => document.getElementById('publish-cover-input')?.click()}
+            {...coverDrop.getRootProps({
+              className: cn(
+                'relative flex h-[100px] cursor-pointer items-center justify-center rounded-none border bg-[#F8FAFC] transition-colors',
+                coverDrop.isDragActive
+                  ? 'border-2 border-[#0033A0] bg-[#EFF4FF]'
+                  : 'border border-dashed border-[#E2E8F0] hover:border-[#0033A0]',
+              ),
+            })}
           >
             {coverFileKey ? (
               <>
@@ -612,7 +591,7 @@ export default function PublishEditor() {
               </>
             ) : (
               <>
-                {dragOver === 'cover' ? (
+                {coverDrop.isDragActive ? (
                   <Upload className="size-5 text-[#0033A0]" />
                 ) : (
                   <Upload className="size-5 text-[#94A3B8]" />
@@ -620,20 +599,14 @@ export default function PublishEditor() {
                 <span
                   className={cn(
                     'text-[10px] font-bold',
-                    dragOver === 'cover' ? 'text-[#0033A0]' : 'text-[#94A3B8]',
+                    coverDrop.isDragActive ? 'text-[#0033A0]' : 'text-[#94A3B8]',
                   )}
                 >
-                  {dragOver === 'cover' ? '松开即上传' : '封面（点击或拖拽）'}
+                  {coverDrop.isDragActive ? '松开即上传' : '封面（点击或拖拽）'}
                 </span>
               </>
             )}
-            <input
-              id="publish-cover-input"
-              type="file"
-              accept={IMAGE_ACCEPT}
-              className="hidden"
-              onChange={(e) => void handleFiles(e.target.files, 'cover')}
-            />
+            <input {...coverDrop.getInputProps()} className="hidden" />
           </div>
           <div className="flex flex-col justify-center gap-1">
             <p className="text-[12px] font-bold text-[#1A1A1A]">设置封面</p>
