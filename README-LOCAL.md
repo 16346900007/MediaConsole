@@ -115,3 +115,37 @@ Drizzle 映射见 `server/database/schema.ts`（`customTimestamptz` / `userProfi
 - 前端请求必须用 `axiosForBackend`（`client/src/api/social.ts`），禁止裸 `fetch`
 - 前端禁止改 `client/src/components/business-ui/*`、`client/src/app.tsx` 的平台 Provider、`server/modules/view/`
 - 设计规范（深蓝 `#0033A0` 强调色、零圆角、卡片顶部 3px 强调线等）见 `AGENTS.md`，改页面先读它
+
+## 8. 文件存储（磁盘 / S3 双模式）
+
+统一文件服务（`server/modules/social/files.service.ts`）支持两种模式，通过环境变量切换，接口不变：
+
+- **磁盘模式（默认，本地开发）**：不设置 S3 变量时启用，文件落在 `%APPDATA%\SocialManager\uploads\{bucket}`
+- **S3 模式（服务器部署）**：设置以下环境变量后启用，文件存到 SILO/MinIO（S3 兼容）对象存储，本地不占用系统存储
+
+| 环境变量 | 说明 | 示例 |
+|---|---|---|
+| `S3_ENDPOINT` | 对象存储 S3 API 地址（不含路径） | `http://<内网IP>:19000` |
+| `S3_ACCESS_KEY` | 访问密钥 AK | - |
+| `S3_SECRET_KEY` | 访问密钥 SK | - |
+| `S3_REGION` | 区域（可选，默认 us-east-1） | `us-east-1` |
+| `S3_BUCKET_PREFIX` | 桶名前缀（可选，默认 media-console） | `media-console` |
+
+桶约定（自动带前缀）：
+
+| 桶 | 用途 | 生命周期 |
+|---|---|---|
+| `{prefix}-publish-tmp` | 发布流程临时文件（视频/图片/封面） | 发布完成后自动删除，不占用存储 |
+| `{prefix}-materials` | 素材库文件 | 持久保留 |
+
+> S3 模式下发布执行器通过 `FilesService.toLocalFile()` 把远端文件下载到系统临时目录再喂给 playwright（`setInputFiles` 需要本地文件），发布成功后临时文件随桶内对象一并删除。
+
+示例（服务器部署环境变量）：
+
+```env
+S3_ENDPOINT=http://<内网IP>:19000
+S3_ACCESS_KEY=<AK>
+S3_SECRET_KEY=<SK>
+S3_REGION=us-east-1
+S3_BUCKET_PREFIX=media-console
+```

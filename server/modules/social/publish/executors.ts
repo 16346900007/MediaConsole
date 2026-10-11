@@ -107,7 +107,7 @@ async function publishBilibili(ctx: PublishContext): Promise<PublishResult> {
   const { page, task, files } = ctx;
   const videoKey = task.mediaFileKeys?.[0];
   if (!videoKey) throw new Error('视频文件缺失（mediaFileKeys 为空）');
-  const videoPath = files.localPath(videoKey);
+  const videoPath = await files.toLocalFile(videoKey);
 
   await page
     .goto('https://member.bilibili.com/platform/upload/video/frame', {
@@ -127,7 +127,7 @@ async function publishBilibili(ctx: PublishContext): Promise<PublishResult> {
 
   // 2. 封面（如有自定义封面先上传；否则自动截帧，跳过）
   if (task.coverFileKey) {
-    const coverPath = files.localPath(task.coverFileKey);
+    const coverPath = await files.toLocalFile(task.coverFileKey);
     const coverBtn = page
       .locator('button, span, div', {
         hasText: /编辑封面|上传封面/,
