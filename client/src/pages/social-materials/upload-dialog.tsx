@@ -219,9 +219,21 @@ const UploadMaterialDialog: FC<UploadMaterialDialogProps> = ({
               return (
                 <div
                   key={item.id}
-                  className="rounded-none border border-[#E2E8F0] px-3 py-2"
+                  className="relative overflow-hidden rounded-none border border-[#E2E8F0] px-3 py-2"
                 >
-                  <div className="flex items-center gap-3">
+                  {/* 背景色递进：进度覆盖条目背景 */}
+                  {showBar && (
+                    <div
+                      className="absolute inset-y-0 left-0 transition-[width] duration-200"
+                      style={{
+                        width: `${
+                          p === -1 ? 100 : Math.max(0, Math.min(100, p ?? 0))
+                        }%`,
+                        backgroundColor: p === -1 ? '#FEF2F2' : '#DCE7FF',
+                      }}
+                    />
+                  )}
+                  <div className="relative z-10 flex items-center gap-3">
                     {item.type === 'image' ? (
                       <ImageIcon className="size-5 shrink-0 text-[#3B82F6]" />
                     ) : (
@@ -252,19 +264,6 @@ const UploadMaterialDialog: FC<UploadMaterialDialogProps> = ({
                       <Trash2 className="size-4" />
                     </button>
                   </div>
-                  {showBar && (
-                    <div className="mt-2 h-1 w-full overflow-hidden rounded-none bg-[#E2E8F0]">
-                      <div
-                        className="h-full transition-[width] duration-200"
-                        style={{
-                          width: `${
-                            p === -1 ? 100 : Math.max(0, Math.min(100, p ?? 0))
-                          }%`,
-                          backgroundColor: p === -1 ? '#EF4444' : '#0033A0',
-                        }}
-                      />
-                    </div>
-                  )}
                 </div>
               );
             })}

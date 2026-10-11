@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync, createReadStream, openSync, readSync, closeSync } from 'node:fs';
 import { extname, join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { S3Client } from '@aws-sdk/client-s3';
+import { Upload } from '@aws-sdk/lib-storage';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const Minio = require('minio') as any;
@@ -36,6 +38,20 @@ export class FilesService {
   private readonly s3: any | null = null;
   private readonly s3Endpoint: string | null = null;
   private readonly s3Region: string;
+  /** AWS SDK 客户端（仅用于带真实进度的 multipart 上传） */
+  private readonly s3Client: S3Client | null = null;
+  /** 上传进度任务表（S3 模式：前端轮询真实进度） */
+  private readonly uploadTasks = new Map<
+    string,
+    {
+      percent: number;
+      phase: 'uploading' | 'done' | 'error';
+      fileKey?: string;
+      url?: string;
+      thumbUrl?: string | null;
+      error?: string;
+    }
+  >();
   /** 上传并发限制 */
   private readonly partSize = 16 * 1024 * 1024;
 
@@ -55,6 +71,12 @@ export class FilesService {
         secretKey,
         region: this.s3Region,
       });
+      this.s3Client = new S3Client({
+        region: this.s3Region,
+        endpoint,
+        credentials: { accessKeyId: accessKey, secretAccessKey: secretKey },
+        forcePathStyle: true,
+      });
       this.logger.log(`文件存储: S3 模式 @ ${endpoint}（buckets: ${FILE_BUCKETS.join(', ')}）`);
     } else {
       const base = process.env.SOCIAL_UPLOAD_DIR
@@ -64,6 +86,100 @@ export class FilesService {
       for (const bucket of FILE_BUCKETS) mkdirSync(join(this.root, bucket), { recursive: true });
       this.logger.log(`文件存储: 磁盘模式 @ ${this.root}`);
     }
+  }
+
+  /** 是否为 S3 模式（决定上传是否走异步进度任务） */
+  get isS3(): boolean {
+    return this.s3 !== null;
+  }
+
+  /** 查询上传任务进度 */
+  getUploadTask(taskId: string): {
+    percent: number;
+    phase: 'uploading' | 'done' | 'error';
+    fileKey?: string;
+    url?: string;
+    thumbUrl?: string | null;
+    error?: string;
+  } | null {
+    return this.uploadTasks.get(taskId) ?? null;
+  }
+
+  /**
+   * S3 模式：启动带真实进度的后台上传任务（multipart）。
+   * 前端轮询 getUploadTask 拿 MinIO 侧实际进度，而非浏览器→本机的瞬时传输。
+   */
+  async startUploadTask(
+    bucket: FileBucket | string,
+    key: string,
+    buffer: Buffer,
+    mime?: string,
+    thumbBuffer?: Buffer | null,
+  ): Promise<string> {
+    const taskId = randomUUID();
+    const b = this.resolveBucket(bucket);
+    const safeKey = key.replace(/[^A-Za-z0-9._-]/g, '');
+    this.uploadTasks.set(taskId, { percent: 0, phase: 'uploading' });
+
+    void this.runUploadTask(taskId, b, safeKey, buffer, mime, thumbBuffer).catch((e: Error) => {
+      this.uploadTasks.set(taskId, {
+        percent: 0,
+        phase: 'error',
+        error: e.message,
+      });
+      this.logger.warn(`上传任务失败 ${taskId}: ${e.message}`);
+    });
+    return taskId;
+  }
+
+  private async runUploadTask(
+    taskId: string,
+    bucket: string,
+    safeKey: string,
+    buffer: Buffer,
+    mime?: string,
+    thumbBuffer?: Buffer | null,
+  ): Promise<void> {
+    if (!this.s3Client) throw new Error('S3 客户端未初始化');
+    // multipart 上传：httpUploadProgress 为 MinIO 服务器侧真实接收进度
+    const upload = new Upload({
+      client: this.s3Client,
+      params: {
+        Bucket: bucket,
+        Key: safeKey,
+        Body: buffer,
+        ContentType: mime || 'application/octet-stream',
+      },
+      partSize: this.partSize,
+      queueSize: 4,
+    });
+    upload.on('httpUploadProgress', (e: { loaded?: number; total?: number }) => {
+      if (e.total) {
+        this.uploadTasks.set(taskId, {
+          percent: Math.max(0, Math.min(99, Math.round((e.loaded / e.total) * 100))),
+          phase: 'uploading',
+        });
+      }
+    });
+    await upload.done();
+
+    // 可选缩略图（小图，同步 PUT，不占进度）
+    let thumbUrl: string | null = null;
+    if (thumbBuffer && thumbBuffer.length > 0) {
+      const thumbKey = `${safeKey}.thumb.jpg`;
+      await this.s3.putObject(bucket, thumbKey, thumbBuffer, thumbBuffer.length, {
+        'Content-Type': 'image/jpeg',
+      });
+      thumbUrl = `/api/social/files/${bucket}/${thumbKey}`;
+    }
+
+    this.uploadTasks.set(taskId, {
+      percent: 100,
+      phase: 'done',
+      fileKey: `${bucket}/${safeKey}`,
+      url: `/api/social/files/${bucket}/${safeKey}`,
+      thumbUrl,
+    });
   }
 
   /** 生成唯一文件 key：{uuid}{ext} */

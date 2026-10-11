@@ -445,4 +445,7 @@ export interface FileUploadResponse {
   mime: string;
   /** 视频截帧缩略图读取地址（随 thumb 字段一起上传时返回） */
   thumbUrl?: string | null;
+  /** S3 模式：异步上传任务 id（存在时需轮询 /api/social/files/upload-progress/:taskId） */
+  taskId?: string;
+  phase?: 'uploading' | 'done' | 'error';
 }

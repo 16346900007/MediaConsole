@@ -47,12 +47,29 @@ export class FilesController {
     // 桶名归一：兼容前端短名（publish-tmp/materials）与带前缀真实桶名
     const b = this.filesService.resolveBucket(bucket);
     const key = this.filesService.generateKey(file.originalname ?? 'file');
+    const thumb = files?.thumb?.[0];
+
+    // S3 模式：走后台任务，前端轮询 /upload-progress/:taskId 拿 MinIO 真实进度
+    if (this.filesService.isS3) {
+      const taskId = await this.filesService.startUploadTask(
+        b,
+        key,
+        file.buffer,
+        file.mimetype,
+        thumb?.buffer,
+      );
+      return {
+        taskId,
+        phase: 'uploading',
+      } as unknown as FileUploadResponse;
+    }
+
+    // 磁盘模式：本地写盘很快，同步返回
     const { fileKey } = await this.filesService.save(b, key, file.buffer, file.mimetype);
     const stat = await this.filesService.stat(fileKey);
 
     // 可选：视频截帧缩略图随同上传，存为 <key>.thumb.jpg
     let thumbUrl: string | null = null;
-    const thumb = files?.thumb?.[0];
     if (thumb?.buffer) {
       const thumbKey = `${key}.thumb.jpg`;
       await this.filesService.save(b, thumbKey, thumb.buffer, thumb.mimetype ?? 'image/jpeg');
@@ -66,6 +83,25 @@ export class FilesController {
       mime: stat?.mime ?? file.mimetype ?? 'application/octet-stream',
       thumbUrl,
     };
+  }
+
+  /** 查询上传任务进度（S3 模式 multipart 真实进度） */
+  @NeedLogin()
+  @Get('upload-progress/:taskId')
+  async uploadProgress(@Param('taskId') taskId: string): Promise<{
+    taskId: string;
+    percent: number;
+    phase: 'uploading' | 'done' | 'error';
+    fileKey?: string;
+    url?: string;
+    thumbUrl?: string | null;
+    error?: string;
+  }> {
+    const task = this.filesService.getUploadTask(taskId);
+    if (!task) {
+      return { taskId, percent: 0, phase: 'error', error: '任务不存在' };
+    }
+    return { taskId, ...task };
   }
 
   /** 读取文件（封面预览/下载；key 形如 publish-tmp/xxx.mp4；支持 HTTP Range 分段，视频 seek/抽帧必需） */

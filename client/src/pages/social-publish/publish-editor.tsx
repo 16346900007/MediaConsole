@@ -70,6 +70,17 @@ interface ExtraField {
   options?: { value: string; label: string }[];
 }
 
+/** 发布素材项：选择后立即占位，上传中显示真实进度（背景递进） */
+interface MediaUploadItem {
+  id: string;
+  file?: File;
+  fileKey?: string;
+  name: string;
+  /** 0-100 上传进度；-1 上传失败 */
+  progress: number;
+  status: 'uploading' | 'done' | 'error';
+}
+
 const PLATFORM_EXTRA_FIELDS: Record<string, ExtraField[]> = {
   bilibili: [
     { key: 'tid', label: '分区ID', type: 'text' },
@@ -128,8 +139,8 @@ export default function PublishEditor() {
   const [location, setLocation] = useState('');
   const [visibility, setVisibility] = useState<'public' | 'private'>('public');
   const [coverFileKey, setCoverFileKey] = useState<string | null>(null);
-  const [mediaFileKeys, setMediaFileKeys] = useState<string[]>([]);
-  const [mediaNames, setMediaNames] = useState<string[]>([]);
+  /** 视频/图片素材列表：选择后立即占位展示，逐项真实进度（背景递进） */
+  const [mediaItems, setMediaItems] = useState<MediaUploadItem[]>([]);
   const [platformFields, setPlatformFields] = useState<Record<string, Record<string, unknown>>>({});
   const [targets, setTargets] = useState<{ platform: string; accountId: string }[]>([]);
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
@@ -165,7 +176,15 @@ export default function PublishEditor() {
       setLocation(task.location ?? '');
       setVisibility(task.visibility);
       setCoverFileKey(task.coverFileKey);
-      setMediaFileKeys(task.mediaFileKeys);
+      setMediaItems(
+        (task.mediaFileKeys ?? []).map((key: string): MediaUploadItem => ({
+          id: `loaded-${key}`,
+          fileKey: key,
+          name: key,
+          progress: 100,
+          status: 'done',
+        })),
+      );
       setPlatformFields(task.platformFields ?? {});
       setTargets(task.targets.map((t) => ({ platform: t.platform, accountId: t.accountId })));
       if (task.status === 'scheduled' && task.scheduledAt) {
@@ -240,7 +259,7 @@ export default function PublishEditor() {
     let list = Array.from(files);
     // 视频最多 5 个：超出部分忽略并提示
     if (kind === 'media' && publishType === 'video') {
-      const room = Math.max(0, 5 - mediaFileKeys.length);
+      const room = Math.max(0, 5 - mediaItems.length);
       if (list.length > room) {
         toast.warning(`视频最多上传 5 个，已忽略多余文件`);
         list = list.slice(0, room);
@@ -262,28 +281,49 @@ export default function PublishEditor() {
       toast.warning(`不支持的文件类型：${bad.name}`);
       return;
     }
-    setUploading(true);
-    setUploadProgress(0);
-    try {
-      if (kind === 'cover') {
+
+    if (kind === 'cover') {
+      setUploading(true);
+      setUploadProgress(0);
+      try {
         const r = await uploadPublishFile(list[0], 'publish-tmp', (p) => setUploadProgress(p));
         setCoverFileKey(r.fileKey);
-      } else {
-        const keys: string[] = [];
-        const names: string[] = [];
-        for (const f of list) {
-          const r = await uploadPublishFile(f, 'publish-tmp', (p) => setUploadProgress(p));
-          keys.push(r.fileKey);
-          names.push(f.name);
-        }
-        setMediaFileKeys((prev) => [...prev, ...keys]);
-        setMediaNames((prev) => [...prev, ...names]);
+      } catch (e) {
+        toast.error(`上传失败：${resolveErrorMessage(e)}`);
+      } finally {
+        setUploading(false);
+        setUploadProgress(null);
       }
-    } catch (e) {
-      toast.error(`上传失败：${resolveErrorMessage(e)}`);
-    } finally {
-      setUploading(false);
-      setUploadProgress(null);
+      return;
+    }
+
+    // 媒体文件：先立即加列（上传中占位），再逐项真实上传，背景递进
+    const added = list.map((f: File): MediaUploadItem => ({
+      id: `${f.name}-${f.size}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      file: f,
+      fileKey: undefined,
+      name: f.name,
+      progress: 0,
+      status: 'uploading',
+    }));
+    setMediaItems((prev: MediaUploadItem[]) => [...prev, ...added]);
+    const patchItem = (id: string, patch: Partial<MediaUploadItem>): void => {
+      setMediaItems((prev: MediaUploadItem[]) =>
+        prev.map((it: MediaUploadItem): MediaUploadItem => (it.id === id ? { ...it, ...patch } : it)),
+      );
+    };
+    for (const item of added) {
+      try {
+        const r = await uploadPublishFile(
+          item.file,
+          'publish-tmp',
+          (p: number) => patchItem(item.id, { progress: p }),
+        );
+        patchItem(item.id, { progress: 100, status: 'done', fileKey: r.fileKey });
+      } catch (e) {
+        patchItem(item.id, { progress: -1, status: 'error' });
+        toast.error(`上传失败：${item.name}（${resolveErrorMessage(e)}）`);
+      }
     }
   };
 
@@ -314,7 +354,9 @@ export default function PublishEditor() {
       topic: topics.map((t) => `#${t}`).join(' '),
       location,
       coverFileKey,
-      mediaFileKeys,
+      mediaFileKeys: mediaItems
+        .filter((it: MediaUploadItem): boolean => it.status === 'done' && !!it.fileKey)
+        .map((it: MediaUploadItem): string => it.fileKey!),
       platformFields,
       visibility,
       targets,
@@ -342,10 +384,13 @@ export default function PublishEditor() {
     if (targets.length === 0) {
       return '请至少选择一个发布账号';
     }
-    if (publishType === 'video' && mediaFileKeys.length === 0) {
+    const doneMediaCount = mediaItems.filter(
+      (it: MediaUploadItem): boolean => it.status === 'done' && !!it.fileKey,
+    ).length;
+    if (publishType === 'video' && doneMediaCount === 0) {
       return '请至少上传 1 个视频文件';
     }
-    if (publishType === 'image' && mediaFileKeys.length === 0) {
+    if (publishType === 'image' && doneMediaCount === 0) {
       return '请至少上传 1 张图片';
     }
     if (publishType === 'article' && !body.trim()) {
@@ -459,48 +504,89 @@ export default function PublishEditor() {
               ),
             })}
           >
-            {mediaFileKeys.length > 0 ? (
+            {mediaItems.length > 0 ? (
               <div className="flex w-full flex-col gap-1.5 p-4">
-                {mediaFileKeys.map((key, i) => (
+                {mediaItems.map((it, i) => (
                   <div
-                    key={key}
-                    className="flex items-center justify-between gap-3 rounded-none border border-[#E2E8F0] bg-white px-3 py-2"
+                    key={it.id}
+                    className="relative overflow-hidden rounded-none border border-[#E2E8F0] bg-white px-3 py-2"
                   >
-                    <button
-                      type="button"
-                      className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setPreview({ kind: 'video', index: i });
-                      }}
-                      title="点击预览"
-                    >
-                      <VideoThumbnail
-                        src={`/api/social/files/${key}`}
-                        className="size-14"
+                    {/* 上传中：背景色按真实进度递进 */}
+                    {it.status === 'uploading' && (
+                      <div
+                        className="absolute inset-y-0 left-0 transition-[width] duration-200"
+                        style={{
+                          width: `${Math.max(0, Math.min(100, it.progress))}%`,
+                          backgroundColor: '#DCE7FF',
+                        }}
                       />
-                      <div className="min-w-0">
-                        <p className="truncate text-[12px] font-bold text-[#1A1A1A]">
-                          {i + 1}. {mediaNames[i] ?? key}
-                        </p>
-                      </div>
-                    </button>
-                    <button
-                      type="button"
-                      className="flex size-6 shrink-0 items-center justify-center rounded-none bg-[#FEF2F2] text-[#EF4444] transition-colors hover:bg-[#EF4444] hover:text-white"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setMediaFileKeys((prev) => prev.filter((_, idx) => idx !== i));
-                        setMediaNames((prev) => prev.filter((_, idx) => idx !== i));
-                      }}
-                      title="移除视频"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </button>
+                    )}
+                    {it.status === 'error' && (
+                      <div className="absolute inset-0 bg-[#FEF2F2]" />
+                    )}
+                    <div className="relative z-10 flex items-center justify-between gap-3">
+                      <button
+                        type="button"
+                        className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (it.status === 'done') {
+                            const doneIdx = mediaItems
+                              .filter((x: MediaUploadItem): boolean => x.status === 'done' && !!x.fileKey)
+                              .findIndex((x: MediaUploadItem): boolean => x.id === it.id);
+                            setPreview({ kind: 'video', index: Math.max(0, doneIdx) });
+                          }
+                        }}
+                        title={it.status === 'done' ? '点击预览' : '上传中'}
+                      >
+                        {it.status === 'done' ? (
+                          <VideoThumbnail
+                            src={`/api/social/files/${it.fileKey}`}
+                            className="size-14"
+                          />
+                        ) : (
+                          <div className="flex size-14 shrink-0 items-center justify-center bg-[#E8EEF9]">
+                            {it.status === 'error' ? (
+                              <Trash2 className="size-5 text-[#EF4444]" />
+                            ) : (
+                              <Upload className="size-5 animate-pulse text-[#0033A0]" />
+                            )}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="truncate text-[12px] font-bold text-[#1A1A1A]">
+                            {i + 1}. {it.name}
+                          </p>
+                        </div>
+                      </button>
+                      {it.status === 'uploading' && (
+                        <span className="shrink-0 font-mono text-[12px] font-bold text-[#0033A0]">
+                          {Math.round(it.progress)}%
+                        </span>
+                      )}
+                      {it.status === 'error' && (
+                        <span className="shrink-0 text-[12px] font-bold text-[#EF4444]">
+                          失败
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        className="flex size-6 shrink-0 items-center justify-center rounded-none bg-[#FEF2F2] text-[#EF4444] transition-colors hover:bg-[#EF4444] hover:text-white"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMediaItems((prev: MediaUploadItem[]) =>
+                            prev.filter((x: MediaUploadItem): boolean => x.id !== it.id),
+                          );
+                        }}
+                        title="移除"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </div>
                   </div>
                 ))}
                 <p className="mt-1 text-[10px] font-medium text-[#94A3B8]">
-                  {mediaFileKeys.length}/5 · 可继续点击或拖拽添加（MP4/WebM/MOV），点击视频可弹窗预览
+                  {mediaItems.length}/5 · 可继续点击或拖拽添加（MP4/WebM/MOV），点击视频可弹窗预览
                 </p>
               </div>
             ) : (
@@ -544,32 +630,59 @@ export default function PublishEditor() {
               ),
             })}
           >
-            {mediaFileKeys.length > 0 ? (
+            {mediaItems.length > 0 ? (
               <div className="flex w-full flex-wrap items-center gap-3 p-4">
-                {mediaFileKeys.map((key, i) => (
-                  <div key={key} className="group relative">
+                {mediaItems.map((it, i) => (
+                  <div key={it.id} className="relative">
                     <button
                       type="button"
                       className="block"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setPreview({ kind: 'image', index: i });
+                        if (it.status === 'done') {
+                          const doneIdx = mediaItems
+                            .filter((x: MediaUploadItem): boolean => x.status === 'done' && !!x.fileKey)
+                            .findIndex((x: MediaUploadItem): boolean => x.id === it.id);
+                          setPreview({ kind: 'image', index: Math.max(0, doneIdx) });
+                        }
                       }}
-                      title="点击预览"
+                      title={it.status === 'done' ? '点击预览' : '上传中'}
                     >
-                      <img
-                        src={`/api/social/files/${key}`}
-                        alt=""
-                        className="size-20 rounded-none border border-[#E2E8F0] object-cover transition-opacity group-hover:opacity-90"
-                      />
+                      {it.status === 'done' ? (
+                        <img
+                          src={`/api/social/files/${it.fileKey}`}
+                          alt=""
+                          className="size-20 rounded-none border border-[#E2E8F0] object-cover transition-opacity group-hover:opacity-90"
+                        />
+                      ) : (
+                        <div
+                          className={`flex size-20 flex-col items-center justify-center gap-1 rounded-none border border-[#E2E8F0] ${
+                            it.status === 'error' ? 'bg-[#FEF2F2]' : 'bg-[#DCE7FF]'
+                          }`}
+                          style={
+                            it.status === 'uploading'
+                              ? { opacity: 0.4 + (it.progress / 100) * 0.6 }
+                              : undefined
+                          }
+                        >
+                          {it.status === 'error' ? (
+                            <span className="text-[10px] font-bold text-[#EF4444]">失败</span>
+                          ) : (
+                            <span className="font-mono text-[11px] font-bold text-[#0033A0]">
+                              {Math.round(it.progress)}%
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </button>
                     <button
                       type="button"
                       className="absolute -top-1.5 -right-1.5 flex size-5 items-center justify-center rounded-full bg-[#EF4444] text-white shadow-sm transition-transform hover:scale-110"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setMediaFileKeys((prev) => prev.filter((k) => k !== key));
-                        setMediaNames((prev) => prev.filter((_, idx) => idx !== i));
+                        setMediaItems((prev: MediaUploadItem[]) =>
+                          prev.filter((x: MediaUploadItem): boolean => x.id !== it.id),
+                        );
                       }}
                       title="移除图片"
                     >
@@ -579,7 +692,7 @@ export default function PublishEditor() {
                 ))}
                 <div className="flex size-20 flex-col items-center justify-center gap-1 rounded-none border border-dashed border-[#94A3B8] text-[#94A3B8] transition-colors hover:border-[#0033A0] hover:text-[#0033A0]">
                   <ImagePlus className="size-5" />
-                  <span className="text-[10px] font-bold">{uploading ? (uploadProgress != null && uploadProgress >= 100 ? '服务端存储中…' : uploadProgress != null ? `上传中 ${uploadProgress}%` : '上传中…') : '继续添加'}</span>
+                  <span className="text-[10px] font-bold">继续添加</span>
                 </div>
               </div>
             ) : (
@@ -896,9 +1009,13 @@ export default function PublishEditor() {
             ? coverFileKey
               ? [coverFileKey]
               : []
-            : mediaFileKeys
+            : mediaItems
+                .filter((it: MediaUploadItem): boolean => it.status === 'done' && !!it.fileKey)
+                .map((it: MediaUploadItem): string => it.fileKey!)
         }
-        names={mediaNames}
+        names={mediaItems
+          .filter((it: MediaUploadItem): boolean => it.status === 'done' && !!it.fileKey)
+          .map((it: MediaUploadItem): string => it.name)}
         onClose={() => setPreview(null)}
         onPrev={() =>
           setPreview((p) => (p ? { ...p, index: Math.max(0, p.index - 1) } : p))

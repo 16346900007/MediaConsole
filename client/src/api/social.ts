@@ -524,11 +524,52 @@ export async function uploadPublishFile(
     method: 'POST',
     data: form,
     headers: { 'Content-Type': 'multipart/form-data' },
-    timeout: 180000, // MinIO 存储服务器吞吐慢时，大文件可能耗时数分钟
-    onUploadProgress: (e) => {
-      if (!onProgress || !e.total) return;
-      onProgress(Math.round((e.loaded / e.total) * 100));
-    },
+    timeout: 180000, // 浏览器→本机后端传输；MinIO 存储进度由后台任务轮询
   });
-  return response.data;
+  const data = response.data as FileUploadResponse;
+  // S3 模式：返回 taskId，轮询后台任务拿 MinIO 服务器侧真实进度
+  if (data.taskId) {
+    return await pollUploadTask(data.taskId, onProgress);
+  }
+  return data;
+}
+
+/** 轮询 S3 上传任务直到完成，回报真实进度 */
+async function pollUploadTask(
+  taskId: string,
+  onProgress?: (percent: number) => void,
+): Promise<FileUploadResponse> {
+  for (;;) {
+    const resp = await axiosForBackend({
+      url: `/api/social/files/upload-progress/${taskId}`,
+      method: 'GET',
+      timeout: 10000,
+    });
+    const task = resp.data as {
+      taskId: string;
+      percent: number;
+      phase: 'uploading' | 'done' | 'error';
+      fileKey?: string;
+      url?: string;
+      thumbUrl?: string | null;
+      error?: string;
+    };
+    if (onProgress) onProgress(task.percent ?? 0);
+    if (task.phase === 'done') {
+      return {
+        fileKey: task.fileKey ?? '',
+        url: task.url ?? '',
+        size: 0,
+        mime: '',
+        thumbUrl: task.thumbUrl ?? null,
+      };
+    }
+    if (task.phase === 'error') {
+      throw new Error(task.error ?? '上传失败');
+    }
+    // 500ms 轮询一次
+    await new Promise((resolve: (v: void) => void): void => {
+      setTimeout(resolve, 500);
+    });
+  }
 }
