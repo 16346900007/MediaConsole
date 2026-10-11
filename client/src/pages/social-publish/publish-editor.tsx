@@ -136,6 +136,7 @@ export default function PublishEditor() {
   const [scheduleAt, setScheduleAt] = useState<string>('');
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   /** 弹窗预览：类型 + 当前索引 */
   const [preview, setPreview] = useState<{ kind: 'video' | 'image' | 'cover'; index: number } | null>(null);
   /** 选账号弹窗 */
@@ -262,15 +263,16 @@ export default function PublishEditor() {
       return;
     }
     setUploading(true);
+    setUploadProgress(0);
     try {
       if (kind === 'cover') {
-        const r = await uploadPublishFile(list[0]);
+        const r = await uploadPublishFile(list[0], 'publish-tmp', (p) => setUploadProgress(p));
         setCoverFileKey(r.fileKey);
       } else {
         const keys: string[] = [];
         const names: string[] = [];
         for (const f of list) {
-          const r = await uploadPublishFile(f);
+          const r = await uploadPublishFile(f, 'publish-tmp', (p) => setUploadProgress(p));
           keys.push(r.fileKey);
           names.push(f.name);
         }
@@ -281,6 +283,7 @@ export default function PublishEditor() {
       toast.error(`上传失败：${resolveErrorMessage(e)}`);
     } finally {
       setUploading(false);
+      setUploadProgress(null);
     }
   };
 
@@ -516,7 +519,9 @@ export default function PublishEditor() {
                   )}
                 >
                   {uploading
-                    ? '上传中…'
+                    ? uploadProgress != null
+                      ? `上传中 ${uploadProgress}%`
+                      : '上传中…'
                     : videoDrop.isDragActive
                       ? '松开即上传'
                       : '点击或拖拽视频文件到此处（最多 5 个，MP4/WebM/MOV）'}
@@ -572,7 +577,7 @@ export default function PublishEditor() {
                 ))}
                 <div className="flex size-20 flex-col items-center justify-center gap-1 rounded-none border border-dashed border-[#94A3B8] text-[#94A3B8] transition-colors hover:border-[#0033A0] hover:text-[#0033A0]">
                   <ImagePlus className="size-5" />
-                  <span className="text-[10px] font-bold">{uploading ? '上传中…' : '继续添加'}</span>
+                  <span className="text-[10px] font-bold">{uploading ? (uploadProgress != null ? `上传中 ${uploadProgress}%` : '上传中…') : '继续添加'}</span>
                 </div>
               </div>
             ) : (
@@ -591,7 +596,9 @@ export default function PublishEditor() {
                   )}
                 >
                   {uploading
-                    ? '上传中…'
+                    ? uploadProgress != null
+                      ? `上传中 ${uploadProgress}%`
+                      : '上传中…'
                     : imageDrop.isDragActive
                       ? '松开即上传'
                       : '点击或拖拽图片到此处（可多选，JPG/PNG/WebP/GIF）'}

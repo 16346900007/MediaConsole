@@ -512,6 +512,7 @@ export async function submitPublishTask(
 export async function uploadPublishFile(
   file: File,
   bucket: 'publish-tmp' | 'materials' = 'publish-tmp',
+  onProgress?: (percent: number) => void,
 ): Promise<FileUploadResponse> {
   const form = new FormData();
   form.append('file', file);
@@ -521,6 +522,10 @@ export async function uploadPublishFile(
     method: 'POST',
     data: form,
     headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress: (e) => {
+      if (!onProgress || !e.total) return;
+      onProgress(Math.round((e.loaded / e.total) * 100));
+    },
   });
   return response.data;
 }
