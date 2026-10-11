@@ -1,8 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
-import { ArrowLeft, CalendarClock, ImagePlus, Save, Send, Trash2, Upload } from 'lucide-react';
+import {
+  ArrowLeft,
+  CalendarClock,
+  ImagePlus,
+  Plus,
+  Save,
+  Send,
+  Trash2,
+  Upload,
+  X,
+} from 'lucide-react';
 import type {
+  AccountGroup,
   PublishTask,
   PublishTaskInput,
   SocialAccount,
@@ -17,15 +28,23 @@ import {
 import {
   createPublishTask,
   getPublishTask,
+  listAccountGroups,
   listAccounts,
   submitPublishTask,
   updatePublishTask,
   uploadPublishFile,
 } from '@client/src/api/social';
+import { PLATFORM_LOGOS } from '@/utils/platform-logos';
 import VideoThumbnail from '@/components/VideoThumbnail';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Calendar } from '@/components/ui/calendar';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Popover,
   PopoverContent,
@@ -119,6 +138,18 @@ export default function PublishEditor() {
   const [uploading, setUploading] = useState(false);
   /** 弹窗预览：类型 + 当前索引 */
   const [preview, setPreview] = useState<{ kind: 'video' | 'image' | 'cover'; index: number } | null>(null);
+  /** 选账号弹窗 */
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [groups, setGroups] = useState<AccountGroup[]>([]);
+
+  /* 加载账号分组（弹窗分组筛选用） */
+  const loadGroups = useCallback(async () => {
+    try {
+      setGroups(await listAccountGroups());
+    } catch {
+      /* 分组加载失败不阻塞 */
+    }
+  }, []);
 
   /* 加载已有发布单 */
   const load = useCallback(async () => {
@@ -159,7 +190,8 @@ export default function PublishEditor() {
   useEffect(() => {
     void load();
     void loadAccounts();
-  }, [load, loadAccounts]);
+    void loadGroups();
+  }, [load, loadAccounts, loadGroups]);
 
   /* 平台特有字段变更 */
   const patchPlatformField = (platform: string, key: string, value: unknown) => {
@@ -179,16 +211,10 @@ export default function PublishEditor() {
     () => (publishType ? PUBLISH_TYPE_PLATFORMS[publishType] : []),
     [publishType],
   );
-  const accountsByPlatform = useMemo(() => {
-    const map = new Map<string, SocialAccount[]>();
-    for (const a of accounts) {
-      if (!supportedPlatforms.includes(a.platform)) continue;
-      const arr = map.get(a.platform) ?? [];
-      arr.push(a);
-      map.set(a.platform, arr);
-    }
-    return map;
-  }, [accounts, supportedPlatforms]);
+  const pickerAccounts = useMemo(
+    () => accounts.filter((a) => supportedPlatforms.includes(a.platform)),
+    [accounts, supportedPlatforms],
+  );
 
   const toggleAccount = (accountId: string) => {
     setTargets((prev) =>
@@ -625,11 +651,87 @@ export default function PublishEditor() {
         </div>
       </section>
 
-      {/* 02 基本信息 */}
+      {/* 02 发布账号 */}
+      <section className="rounded-none border-t-[3px] border-t-[#0033A0] bg-white shadow-md p-6">
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <p className="mb-1 text-[12px] font-black uppercase tracking-[0.15em] text-[#0033A0]">
+              02. 发布账号 · 已选 {targets.length} 个
+            </p>
+            <p className="text-[10px] font-medium text-[#94A3B8]">
+              TARGETS · 点击「添加账号」在弹窗中按分组筛选勾选
+            </p>
+          </div>
+          <Button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            className="shrink-0 rounded-none bg-[#0033A0] px-5 text-sm font-semibold hover:bg-[#002680]"
+          >
+            <Plus className="mr-1.5 size-4" />
+            添加账号
+          </Button>
+        </div>
+        {targets.length === 0 ? (
+          <p className="text-[12px] font-medium text-[#94A3B8]">
+            尚未选择账号，点击右上角「添加账号」选择发布目标
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {targets.map((t) => {
+              const acct = accounts.find((a) => a.id === t.accountId);
+              if (!acct) return null;
+              const meta = PLATFORM_MAP[acct.platform as keyof typeof PLATFORM_MAP];
+              return (
+                <div
+                  key={t.accountId}
+                  className="flex items-center gap-3 rounded-none border border-[#E2E8F0] bg-white px-3 py-2.5 transition-colors hover:bg-slate-50"
+                >
+                  <img
+                    src={PLATFORM_LOGOS[acct.platform]}
+                    alt=""
+                    className="size-4 shrink-0 rounded-none"
+                  />
+                  {acct.avatar ? (
+                    <img
+                      src={`/avatar-proxy?url=${encodeURIComponent(acct.avatar)}`}
+                      referrerPolicy="no-referrer"
+                      alt=""
+                      className="size-7 shrink-0 rounded-none object-cover"
+                    />
+                  ) : (
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-none bg-[#F1F5F9] text-[10px] font-black text-[#475569]">
+                      {acct.accountName.slice(0, 1)}
+                    </span>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[12px] font-bold text-[#1A1A1A]">
+                      {acct.accountName}
+                    </p>
+                    <p className="truncate text-[10px] font-medium text-[#94A3B8]">
+                      {meta?.name ?? acct.platform}
+                      {acct.groupName ? ` · ${acct.groupName}` : ''}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleAccount(acct.id)}
+                    className="rounded-sm p-1 text-[#94A3B8] transition-colors hover:bg-[#FEF2F2] hover:text-[#EF4444]"
+                    aria-label={`移除 ${acct.accountName}`}
+                  >
+                    <X className="size-4" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* 03 基本信息 */}
       <section className="rounded-none border-t-[3px] border-t-[#0033A0] bg-white shadow-md p-6">
         <div className="mb-6">
           <p className="mb-1 text-[12px] font-black uppercase tracking-[0.15em] text-[#0033A0]">
-            02. 基本信息
+            03. 基本信息
           </p>
           <p className="text-[10px] font-medium text-[#94A3B8]">
             BASIC INFO · 非通用字段标注「不支持哪些平台」
@@ -717,69 +819,6 @@ export default function PublishEditor() {
         )}
       </section>
 
-      {/* 03 发布账号 */}
-      <section className="rounded-none border-t-[3px] border-t-[#0033A0] bg-white shadow-md p-6">
-        <div className="mb-6">
-          <p className="mb-1 text-[12px] font-black uppercase tracking-[0.15em] text-[#0033A0]">
-            03. 发布账号 · 已选 {targets.length} 个
-          </p>
-          <p className="text-[10px] font-medium text-[#94A3B8]">
-            TARGETS · 可勾选多个平台多个账号批量发布
-          </p>
-        </div>
-        {accountsByPlatform.size === 0 ? (
-          <p className="text-[12px] font-medium text-[#94A3B8]">
-            当前发布类型无可选账号，请先在账号页完成授权
-          </p>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {[...accountsByPlatform.entries()].map(([platform, list]) => (
-              <div key={platform} className="rounded-none border border-[#E2E8F0] p-4">
-                <p className="mb-3 flex items-center gap-2 text-[12px] font-black uppercase tracking-tight text-[#0033A0]">
-                  {PLATFORM_MAP[platform as keyof typeof PLATFORM_MAP]?.name ?? platform}
-                </p>
-                <div className="space-y-2">
-                  {list.map((acct) => {
-                    const checked = targets.some((t) => t.accountId === acct.id);
-                    return (
-                      <label
-                        key={acct.id}
-                        className={cn(
-                          'flex cursor-pointer items-center gap-3 rounded-none border px-3 py-2 transition-colors',
-                          checked ? 'border-[#0033A0] bg-[#EFF4FF]' : 'border-[#E2E8F0] hover:bg-slate-50',
-                        )}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleAccount(acct.id)}
-                          className="size-4 accent-[#0033A0]"
-                        />
-                        {acct.avatar ? (
-                          <img
-                            src={`/avatar-proxy?url=${encodeURIComponent(acct.avatar)}`}
-                            referrerPolicy="no-referrer"
-                            alt=""
-                            className="size-7 rounded-none object-cover"
-                          />
-                        ) : (
-                          <span className="flex size-7 items-center justify-center rounded-none bg-[#F1F5F9] text-[10px] font-black text-[#475569]">
-                            {acct.accountName.slice(0, 1)}
-                          </span>
-                        )}
-                        <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-[#1A1A1A]">
-                          {acct.accountName}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
       {/* 04 发布设置 */}
       <section className="rounded-none border-t-[3px] border-t-[#0033A0] bg-white shadow-md p-6">
         <div className="mb-6">
@@ -836,6 +875,16 @@ export default function PublishEditor() {
         onNext={(len) =>
           setPreview((p) => (p ? { ...p, index: Math.min(len - 1, p.index + 1) } : p))
         }
+      />
+
+      {/* 选账号弹窗 */}
+      <AccountPickerDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        accounts={pickerAccounts}
+        groups={groups}
+        targets={targets}
+        onConfirm={(next) => setTargets(next)}
       />
 
       {/* 底部固定操作栏 */}
@@ -1024,7 +1073,7 @@ function ScheduleDateTimePicker({
 
   const display = current
     ? `${current.getFullYear()}/${pad(current.getMonth() + 1)}/${pad(current.getDate())} ${pad(current.getHours())}:${pad(current.getMinutes())}`
-    : 'yyyy/mm/dd --:--';
+    : '选择时间';
 
   return (
     <Popover>
@@ -1109,5 +1158,247 @@ function ScheduleDateTimePicker({
         </div>
       </PopoverContent>
     </Popover>
+  );
+}
+
+/** 选账号弹窗：平台筛选 pill + 分组筛选 + 勾选列表 + 已选计数，确认后写回 targets */
+function AccountPickerDialog({
+  open,
+  onOpenChange,
+  accounts,
+  groups,
+  targets,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  accounts: SocialAccount[];
+  groups: AccountGroup[];
+  targets: { platform: string; accountId: string }[];
+  onConfirm: (next: { platform: string; accountId: string }[]) => void;
+}) {
+  const [platformFilter, setPlatformFilter] = useState<string | null>(null);
+  const [groupFilter, setGroupFilter] = useState<string | null>(null);
+  const [draft, setDraft] = useState<string[]>([]);
+
+  /* 打开时以当前 targets 初始化勾选 */
+  useEffect(() => {
+    if (open) {
+      setDraft(targets.map((t) => t.accountId));
+      setPlatformFilter(null);
+      setGroupFilter(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const platforms = useMemo(() => {
+    const set = new Set<string>();
+    for (const a of accounts) set.add(a.platform);
+    return [...set];
+  }, [accounts]);
+
+  const filtered = useMemo(() => {
+    let list = accounts;
+    if (platformFilter) list = list.filter((a) => a.platform === platformFilter);
+    if (groupFilter) list = list.filter((a) => a.groupName === groupFilter);
+    return list;
+  }, [accounts, platformFilter, groupFilter]);
+
+  const byPlatform = useMemo(() => {
+    const map = new Map<string, SocialAccount[]>();
+    for (const a of filtered) {
+      const arr = map.get(a.platform) ?? [];
+      arr.push(a);
+      map.set(a.platform, arr);
+    }
+    return map;
+  }, [filtered]);
+
+  const pillClass = (active: boolean): string =>
+    cn(
+      'flex items-center gap-1.5 rounded-none border px-3 py-1.5 text-sm font-medium transition-colors',
+      active
+        ? 'border-transparent bg-[#0033A0] text-white'
+        : 'border-[#E2E8F0] bg-white text-[#475569] hover:bg-slate-50',
+    );
+
+  const toggle = (id: string) => {
+    setDraft((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
+  const handleConfirm = (): void => {
+    const acctMap = new Map(accounts.map((a) => [a.id, a]));
+    onConfirm(
+      draft.map((id) => ({
+        platform: acctMap.get(id)?.platform ?? '',
+        accountId: id,
+      })),
+    );
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl rounded-none border-[#E2E8F0] p-0 shadow-md">
+        <DialogHeader className="border-b border-[#E2E8F0] p-6 pb-4">
+          <DialogTitle className="text-base font-black text-[#1A1A1A]">
+            选择账号
+          </DialogTitle>
+          <p className="text-[10px] font-medium text-[#94A3B8]">
+            支持按平台、分组筛选；可勾选多个平台多个账号
+          </p>
+        </DialogHeader>
+
+        {/* 平台筛选 */}
+        <div className="flex flex-wrap gap-2.5 border-b border-[#E2E8F0] px-6 py-3">
+          <button
+            type="button"
+            onClick={() => setPlatformFilter(null)}
+            className={pillClass(platformFilter === null)}
+          >
+            全部平台
+          </button>
+          {platforms.map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() =>
+                setPlatformFilter(platformFilter === p ? null : p)
+              }
+              className={pillClass(platformFilter === p)}
+            >
+              <img
+                src={PLATFORM_LOGOS[p]}
+                alt=""
+                className="size-4 rounded-none"
+              />
+              {PLATFORM_MAP[p as keyof typeof PLATFORM_MAP]?.name ?? p}
+            </button>
+          ))}
+        </div>
+
+        {/* 分组筛选 */}
+        {groups.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2.5 border-b border-[#E2E8F0] px-6 py-3">
+            <span className="text-[10px] font-black uppercase tracking-tight text-[#94A3B8]">
+              分组
+            </span>
+            <button
+              type="button"
+              onClick={() => setGroupFilter(null)}
+              className={pillClass(groupFilter === null)}
+            >
+              全部分组
+            </button>
+            {groups.map((g) => (
+              <button
+                key={g.name}
+                type="button"
+                onClick={() => setGroupFilter(groupFilter === g.name ? null : g.name)}
+                className={pillClass(groupFilter === g.name)}
+              >
+                {g.name}
+                {g.count !== undefined && (
+                  <span className="text-[10px] font-bold opacity-70">
+                    {g.count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* 账号勾选列表 */}
+        <div className="max-h-[52vh] min-h-[260px] overflow-y-auto px-6 py-4">
+          {byPlatform.size === 0 ? (
+            <p className="py-8 text-center text-[12px] font-medium text-[#94A3B8]">
+              无符合条件的账号
+            </p>
+          ) : (
+            [...byPlatform.entries()].map(([platform, list]) => (
+              <div key={platform} className="mb-5 last:mb-0">
+                <p className="mb-2.5 flex items-center gap-2 text-[12px] font-black uppercase tracking-tight text-[#0033A0]">
+                  <img
+                    src={PLATFORM_LOGOS[platform]}
+                    alt=""
+                    className="size-4 rounded-none"
+                  />
+                  {PLATFORM_MAP[platform as keyof typeof PLATFORM_MAP]?.name ?? platform}
+                </p>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {list.map((acct) => {
+                    const checked = draft.includes(acct.id);
+                    return (
+                      <label
+                        key={acct.id}
+                        className={cn(
+                          'flex cursor-pointer items-center gap-3 rounded-none border px-3 py-2 transition-colors',
+                          checked
+                            ? 'border-[#0033A0] bg-[#EFF4FF]'
+                            : 'border-[#E2E8F0] hover:bg-slate-50',
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggle(acct.id)}
+                          className="size-4 accent-[#0033A0]"
+                        />
+                        {acct.avatar ? (
+                          <img
+                            src={`/avatar-proxy?url=${encodeURIComponent(acct.avatar)}`}
+                            referrerPolicy="no-referrer"
+                            alt=""
+                            className="size-7 shrink-0 rounded-none object-cover"
+                          />
+                        ) : (
+                          <span className="flex size-7 shrink-0 items-center justify-center rounded-none bg-[#F1F5F9] text-[10px] font-black text-[#475569]">
+                            {acct.accountName.slice(0, 1)}
+                          </span>
+                        )}
+                        <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-[#1A1A1A]">
+                          {acct.accountName}
+                        </span>
+                        {acct.groupName && (
+                          <span className="shrink-0 rounded-sm bg-[#EFF4FF] px-1.5 py-0.5 text-[10px] font-bold text-[#0033A0]">
+                            {acct.groupName}
+                          </span>
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* 底部：已选计数 + 取消/确认 */}
+        <div className="flex items-center justify-between border-t border-[#E2E8F0] px-6 py-4">
+          <p className="text-[12px] font-bold text-[#1A1A1A]">
+            已选择 <span className="font-mono text-[#0033A0]">{draft.length}</span> 个账号
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="rounded-none border-[#E2E8F0] text-[#475569] hover:bg-slate-50"
+            >
+              取消
+            </Button>
+            <Button
+              type="button"
+              onClick={handleConfirm}
+              className="rounded-none bg-[#0033A0] px-6 hover:bg-[#002680]"
+            >
+              确认添加
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
