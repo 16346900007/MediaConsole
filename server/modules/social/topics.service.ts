@@ -5,7 +5,7 @@ import {
 } from '@lark-apaas/fullstack-nestjs-core';
 import { asc, eq, inArray, sql } from 'drizzle-orm';
 import { socialTopicGroups, socialTopicTags } from '@server/database/schema';
-import type { TopicGroup, TopicLibrary } from '@shared/api.interface';
+import type { TopicGroup, TopicLibrary, TopicTag } from '@shared/api.interface';
 
 type GroupRow = typeof socialTopicGroups.$inferSelect;
 type TagRow = typeof socialTopicTags.$inferSelect;
@@ -28,10 +28,10 @@ export class TopicsService {
       .from(socialTopicTags)
       .orderBy(asc(socialTopicTags.createdAt), asc(socialTopicTags.id));
 
-    const tagMap = new Map<string, string[]>();
+    const tagMap = new Map<string, TopicTag[]>();
     for (const t of tags) {
       const list = tagMap.get(t.groupId) ?? [];
-      list.push(t.name);
+      list.push({ id: t.id, name: t.name });
       tagMap.set(t.groupId, list);
     }
 

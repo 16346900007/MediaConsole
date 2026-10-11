@@ -905,7 +905,7 @@ export default function PublishEditor() {
               <button
                 type="button"
                 onClick={() => setTopicLibOpen(true)}
-                className="flex shrink-0 items-center gap-1.5 rounded-none border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2 text-sm font-bold text-[#0033A0] transition-colors hover:border-[#0033A0] hover:bg-[#EFF4FF]"
+                className="flex h-10 shrink-0 items-center gap-1.5 rounded-none border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm font-bold text-[#0033A0] transition-colors hover:border-[#0033A0] hover:bg-[#EFF4FF]"
                 title="常用话题"
               >
                 <Bookmark className="size-4" />
@@ -1678,7 +1678,7 @@ function TopicCapsuleInput({
   };
 
   return (
-    <div className="flex w-full flex-wrap items-center gap-1.5 rounded-none border border-[#E2E8F0] bg-white px-2 py-1.5 text-sm transition-colors focus-within:border-[#0033A0]">
+    <div className="flex min-h-10 w-full flex-wrap items-center gap-1.5 rounded-none border border-[#E2E8F0] bg-white px-2 py-1.5 text-sm transition-colors focus-within:border-[#0033A0]">
       {value.map((t) => (
         <span
           key={t}

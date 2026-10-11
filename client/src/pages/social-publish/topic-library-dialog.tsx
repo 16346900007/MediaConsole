@@ -12,7 +12,7 @@ import {
   listTopicLibrary,
   renameTopicGroup,
 } from '@client/src/api/social';
-import type { TopicGroup } from '@shared/api.interface';
+import type { TopicGroup, TopicTag } from '@shared/api.interface';
 import { resolveErrorMessage } from '../social-analytics/helpers';
 
 interface TopicLibraryDialogProps {
@@ -63,7 +63,7 @@ const TopicLibraryDialog: FC<TopicLibraryDialogProps> = ({
   useEffect(() => {
     if (!open) return;
     const inLibrary = new Set<string>();
-    for (const g of groups) for (const t of g.tags) inLibrary.add(t);
+    for (const g of groups) for (const t of g.tags) inLibrary.add(t.name);
     setSelected(new Set(value.filter((t) => inLibrary.has(t))));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, groups]);
@@ -74,30 +74,30 @@ const TopicLibraryDialog: FC<TopicLibraryDialogProps> = ({
     return groups
       .map((g): TopicGroup => ({
         ...g,
-        tags: g.tags.filter((t) => t.toLowerCase().includes(kw)),
+        tags: g.tags.filter((t) => t.name.toLowerCase().includes(kw)),
       }))
       .filter((g) => g.name.toLowerCase().includes(kw) || g.tags.length > 0);
   }, [groups, keyword]);
 
-  const toggle = (t: string): void => {
+  const toggle = (name: string): void => {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(t)) next.delete(t);
-      else next.add(t);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
       return next;
     });
   };
 
-  const allSelectedOf = (tags: string[]): boolean =>
-    tags.length > 0 && tags.every((t) => selected.has(t));
+  const allSelectedOf = (tags: TopicTag[]): boolean =>
+    tags.length > 0 && tags.every((t) => selected.has(t.name));
 
-  const toggleGroup = (tags: string[]): void => {
+  const toggleGroup = (tags: TopicTag[]): void => {
     setSelected((prev) => {
       const next = new Set(prev);
       const all = allSelectedOf(tags);
       for (const t of tags) {
-        if (all) next.delete(t);
-        else next.add(t);
+        if (all) next.delete(t.name);
+        else next.add(t.name);
       }
       return next;
     });
@@ -118,7 +118,7 @@ const TopicLibraryDialog: FC<TopicLibraryDialogProps> = ({
       await deleteTopicGroup(g.id);
       setSelected((prev) => {
         const next = new Set(prev);
-        for (const t of g.tags) next.delete(t);
+        for (const t of g.tags) next.delete(t.name);
         return next;
       });
       await load();
@@ -150,8 +150,8 @@ const TopicLibraryDialog: FC<TopicLibraryDialogProps> = ({
             </button>
           </div>
 
-          <div className="px-6 pt-4">
-            <div className="flex items-center gap-2 rounded-none border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2">
+          <div className="px-6 pb-2 pt-4">
+            <div className="flex items-center gap-2 rounded-none border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5">
               <Search className="size-4 shrink-0 text-[#94A3B8]" />
               <input
                 value={keyword}
@@ -162,7 +162,7 @@ const TopicLibraryDialog: FC<TopicLibraryDialogProps> = ({
             </div>
           </div>
 
-          <div className="max-h-[380px] space-y-4 overflow-y-auto px-6 py-4">
+          <div className="max-h-[380px] space-y-3 overflow-y-auto px-6 py-3">
             {loading ? (
               <p className="py-8 text-center text-sm text-[#94A3B8]">加载中…</p>
             ) : filtered.length === 0 ? (
@@ -172,8 +172,8 @@ const TopicLibraryDialog: FC<TopicLibraryDialogProps> = ({
             ) : (
               filtered.map((g, idx) => (
                 <div key={g.id} className="rounded-none border border-[#E2E8F0]">
-                  <div className="flex items-center justify-between gap-2 border-b border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2">
-                    <div className="flex min-w-0 items-center gap-2">
+                  <div className="flex items-center justify-between gap-2 border-b border-[#E2E8F0] bg-[#F8FAFC] px-4 py-2.5">
+                    <div className="flex min-w-0 items-center gap-2.5">
                       <span className="flex size-5 shrink-0 items-center justify-center rounded-sm bg-[#0033A0] font-mono text-[10px] font-bold text-white">
                         {idx + 1}
                       </span>
@@ -198,33 +198,33 @@ const TopicLibraryDialog: FC<TopicLibraryDialogProps> = ({
                       </button>
                     </div>
                   </div>
-                  <div className="px-3 py-2.5">
+                  <div className="px-4 py-3">
                     {g.tags.length === 0 ? (
                       <p className="py-1 text-[12px] text-[#94A3B8]">暂无话题，点右上角编辑添加</p>
                     ) : (
-                      <div className="flex flex-wrap gap-1.5">
+                      <div className="flex flex-wrap gap-2">
                         {g.tags.map((t) => (
                           <button
-                            key={t}
+                            key={t.id}
                             type="button"
-                            onClick={() => toggle(t)}
-                            className={`rounded-sm px-2 py-0.5 text-[12px] font-bold transition-colors ${
-                              selected.has(t)
+                            onClick={() => toggle(t.name)}
+                            className={`rounded-sm px-2.5 py-1 text-[12px] font-bold transition-colors ${
+                              selected.has(t.name)
                                 ? 'bg-[#0033A0] text-white'
                                 : 'bg-[#F1F5F9] text-[#475569] hover:bg-[#E2E8F0]'
                             }`}
                           >
-                            #{t}
+                            #{t.name}
                           </button>
                         ))}
                       </div>
                     )}
-                    <div className="mt-2 flex items-center gap-1.5">
+                    <div className="mt-2.5 flex items-center gap-1.5">
                       <button
                         type="button"
                         onClick={() => toggleGroup(g.tags)}
                         disabled={g.tags.length === 0}
-                        className="flex items-center gap-1 text-[12px] font-bold text-[#0033A0] disabled:opacity-40"
+                        className="flex items-center gap-1.5 text-[12px] font-bold text-[#0033A0] disabled:opacity-40"
                       >
                         <span
                           className={`flex size-3.5 items-center justify-center rounded-sm border ${
@@ -246,7 +246,7 @@ const TopicLibraryDialog: FC<TopicLibraryDialogProps> = ({
             )}
           </div>
 
-          <div className="flex items-center justify-between gap-3 border-t border-[#E2E8F0] px-6 py-3.5">
+          <div className="flex items-center justify-between gap-3 border-t border-[#E2E8F0] px-6 py-4">
             <Button
               variant="outline"
               onClick={() => setEditing('new')}
@@ -283,7 +283,13 @@ const TopicLibraryDialog: FC<TopicLibraryDialogProps> = ({
   );
 };
 
-/** 新建/编辑分组：分组名称 + 添加话题（回车/空格生成胶囊） */
+/** 编辑弹窗内标签条目：已有标签带 id（可删除）；新输入的无 id（保存时新增） */
+interface TagDraft {
+  id?: string;
+  name: string;
+}
+
+/** 新建/编辑分组：分组名称 + 已有标签回显（可删除）+ 添加话题（回车/空格生成胶囊） */
 function TopicGroupEditor({
   editing,
   onClose,
@@ -296,14 +302,19 @@ function TopicGroupEditor({
   const open = editing !== null;
   const isEdit = editing !== null && editing !== 'new';
   const [name, setName] = useState('');
-  const [draftTags, setDraftTags] = useState<string[]>([]);
+  const [tags, setTags] = useState<TagDraft[]>([]);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (open) {
-      setName(isEdit && editing !== 'new' ? editing.name : '');
-      setDraftTags([]);
+      if (isEdit && editing !== 'new') {
+        setName(editing.name);
+        setTags(editing.tags.map((t) => ({ id: t.id, name: t.name })));
+      } else {
+        setName('');
+        setTags([]);
+      }
       setDraft('');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -312,8 +323,12 @@ function TopicGroupEditor({
   const addDraft = (raw: string): void => {
     const t = raw.trim().replace(/^#+/, '');
     if (!t) return;
-    if (!draftTags.includes(t)) setDraftTags((prev) => [...prev, t]);
+    if (!tags.some((x) => x.name === t)) setTags((prev) => [...prev, { name: t }]);
     setDraft('');
+  };
+
+  const removeTag = (tag: TagDraft): void => {
+    setTags((prev) => prev.filter((x) => x !== tag));
   };
 
   const save = async (): Promise<void> => {
@@ -324,14 +339,25 @@ function TopicGroupEditor({
     setSaving(true);
     try {
       if (isEdit && editing !== 'new') {
-        await renameTopicGroup(editing.id, name.trim());
-        if (draftTags.length > 0) {
-          await addTopicTags(editing.id, draftTags);
+        // 重命名
+        if (name.trim() !== editing.name) {
+          await renameTopicGroup(editing.id, name.trim());
+        }
+        // 补充新增标签
+        const added = tags.filter((t) => !t.id).map((t) => t.name);
+        if (added.length > 0) {
+          await addTopicTags(editing.id, added);
+        }
+        // 删除勾掉的已有标签
+        const keepIds = new Set(tags.filter((t) => t.id).map((t) => t.id!));
+        for (const old of editing.tags) {
+          if (!keepIds.has(old.id)) await deleteTopicTag(old.id);
         }
       } else {
         const group = await createTopicGroup(name.trim());
-        if (draftTags.length > 0) {
-          await addTopicTags(group.id, draftTags);
+        const added = tags.map((t) => t.name);
+        if (added.length > 0) {
+          await addTopicTags(group.id, added);
         }
       }
       toast.success(isEdit ? '分组已更新' : '分组已创建');
@@ -370,17 +396,17 @@ function TopicGroupEditor({
               添加话题/标签
             </label>
             <div className="flex w-full flex-wrap items-center gap-1.5 rounded-none border border-[#E2E8F0] bg-white px-2 py-1.5 text-sm focus-within:border-[#0033A0]">
-              {draftTags.map((t) => (
+              {tags.map((t) => (
                 <span
-                  key={t}
+                  key={t.id ?? `new-${t.name}`}
                   className="flex items-center gap-1 rounded-sm bg-[#EFF4FF] px-2 py-0.5 text-[12px] font-bold text-[#0033A0]"
                 >
-                  #{t}
+                  #{t.name}
                   <button
                     type="button"
-                    onClick={() => setDraftTags((prev) => prev.filter((x) => x !== t))}
+                    onClick={() => removeTag(t)}
                     className="opacity-60 transition-opacity hover:opacity-100"
-                    aria-label={`删除话题 ${t}`}
+                    aria-label={`删除话题 ${t.name}`}
                   >
                     <X className="size-3" />
                   </button>
@@ -400,7 +426,7 @@ function TopicGroupEditor({
               />
             </div>
             <p className="mt-1 text-[11px] font-medium text-[#94A3B8]">
-              输入关键词后按回车或空格添加
+              已有话题可直接点 × 删除，输入关键词后按回车或空格添加
             </p>
           </div>
         </div>

@@ -268,11 +268,17 @@ export interface AccountGroup {
   count: number;
 }
 
+/** 常用话题标签（列表返回 id 以便编辑弹窗删除） */
+export interface TopicTag {
+  id: string;
+  name: string;
+}
+
 /** 常用话题分组（发布页话题库） */
 export interface TopicGroup {
   id: string;
   name: string;
-  tags: string[];
+  tags: TopicTag[];
 }
 
 export interface TopicLibrary {
