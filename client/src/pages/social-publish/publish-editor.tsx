@@ -608,73 +608,70 @@ export default function PublishEditor() {
             SCHEDULE · 定时为本地到点触发（需后端服务运行）
           </p>
         </div>
-        <div className="flex flex-wrap items-end gap-6">
-          {/* 定时发布：勾选即生效 */}
-          <div className="min-w-[320px] flex-1">
-            <label className="flex cursor-pointer items-center gap-2.5">
-              <input
-                type="checkbox"
-                checked={scheduleEnabled}
-                onChange={(e) => setScheduleEnabled(e.target.checked)}
-                className="size-4 accent-[#0033A0]"
-              />
-              <span className="text-sm font-bold text-[#1A1A1A]">定时发布</span>
-              <span className="text-[10px] font-medium text-[#94A3B8]">
-                勾选后设置时间，到点自动发布
-              </span>
-            </label>
-            {scheduleEnabled && (
-              <div className="mt-3">
-                <p className="mb-2 text-[10px] font-black uppercase tracking-tight text-[#94A3B8]">
-                  定时发布时间
-                </p>
-                <input
-                  type="datetime-local"
-                  value={scheduleAt}
-                  onChange={(e) => setScheduleAt(e.target.value)}
-                  className="w-full rounded-none border border-[#E2E8F0] bg-white px-3 py-2 text-sm outline-none focus:border-[#0033A0]"
-                />
-              </div>
-            )}
+        <label className="flex cursor-pointer items-center gap-2.5">
+          <input
+            type="checkbox"
+            checked={scheduleEnabled}
+            onChange={(e) => setScheduleEnabled(e.target.checked)}
+            className="size-4 accent-[#0033A0]"
+          />
+          <span className="text-sm font-bold text-[#1A1A1A]">定时发布</span>
+          <span className="text-[10px] font-medium text-[#94A3B8]">
+            勾选后设置时间，到点自动发布
+          </span>
+        </label>
+        {scheduleEnabled && (
+          <div className="mt-3 max-w-[360px]">
+            <p className="mb-2 text-[10px] font-black uppercase tracking-tight text-[#94A3B8]">
+              定时发布时间
+            </p>
+            <input
+              type="datetime-local"
+              value={scheduleAt}
+              onChange={(e) => setScheduleAt(e.target.value)}
+              className="w-full rounded-none border border-[#E2E8F0] bg-white px-3 py-2 text-sm outline-none focus:border-[#0033A0]"
+            />
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              className="rounded-none border-[#94A3B8] text-[#475569] hover:bg-slate-100"
-              disabled={saving || uploading}
-              onClick={() => void handleSaveDraft()}
-            >
-              <Save className="size-4" />
-              保存草稿
-            </Button>
-            <Button
-              type="button"
-              className={cn(
-                'rounded-none text-white',
-                scheduleEnabled ? 'bg-[#F59E0B] hover:bg-[#D97706]' : 'bg-[#0033A0] hover:bg-[#00236E]',
-              )}
-              disabled={saving || uploading}
-              onClick={() => void (scheduleEnabled ? handleSchedule() : handlePublishNow())}
-            >
-              {scheduleEnabled ? (
-                <>
-                  <CalendarClock className="size-4" />
-                  定时发布
-                </>
-              ) : (
-                <>
-                  <Send className="size-4" />
-                  立即发布
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-        <p className="mt-3 text-[10px] font-medium text-[#94A3B8]">
+        )}
+        <p className="mt-4 text-[10px] font-medium text-[#94A3B8]">
           发布完成后临时文件自动清除，不占用系统存储；失败的平台账号保留文件可重试。
         </p>
       </section>
+
+      {/* 底部固定操作栏 */}
+      <div className="sticky bottom-0 z-30 -mx-8 flex items-center justify-end gap-2 border-t border-[#E2E8F0] bg-white px-8 py-3 shadow-[0_-2px_8px_rgba(0,0,0,0.06)]">
+        <Button
+          type="button"
+          variant="outline"
+          className="rounded-none border-[#94A3B8] text-[#475569] hover:bg-slate-100"
+          disabled={saving || uploading}
+          onClick={() => void handleSaveDraft()}
+        >
+          <Save className="size-4" />
+          保存草稿
+        </Button>
+        <Button
+          type="button"
+          className={cn(
+            'rounded-none text-white',
+            scheduleEnabled ? 'bg-[#F59E0B] hover:bg-[#D97706]' : 'bg-[#0033A0] hover:bg-[#00236E]',
+          )}
+          disabled={saving || uploading}
+          onClick={() => void (scheduleEnabled ? handleSchedule() : handlePublishNow())}
+        >
+          {scheduleEnabled ? (
+            <>
+              <CalendarClock className="size-4" />
+              定时发布
+            </>
+          ) : (
+            <>
+              <Send className="size-4" />
+              立即发布
+            </>
+          )}
+        </Button>
+      </div>
     </div>
   );
 }
