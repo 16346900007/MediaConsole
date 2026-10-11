@@ -347,6 +347,88 @@ export const socialPosts = pgTable("social_posts", {
   }).onDelete("cascade"),
 ]);
 
+/* ------------------------------------------------------------------ */
+/* 发布：social_publish_tasks（发布单）+ social_publish_targets（目标） */
+/* ------------------------------------------------------------------ */
+export const socialPublishTasks = pgTable("social_publish_tasks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  /** 发布类型：video / image / article */
+  publishType: varchar("publish_type", { length: 16 }).notNull(),
+  title: varchar("title", { length: 300 }).notNull().default(''),
+  /** 正文/描述（文章类型为全文） */
+  body: text("body"),
+  /** 话题（#话题1 #话题2 或逗号分隔） */
+  topic: varchar("topic", { length: 500 }),
+  /** 位置文本 */
+  location: varchar("location", { length: 200 }),
+  /** 封面文件 key（files 服务） */
+  coverFileKey: text("cover_file_key"),
+  /** 主体文件 key 列表（视频 1 个 / 图文多张 / 文章空） */
+  mediaFileKeys: jsonb("media_file_keys").notNull().default(sql`'[]'::jsonb`),
+  /** 平台特有字段（jsonb：{ bilibili: { tid, tag, copyright } }） */
+  platformFields: jsonb("platform_fields").notNull().default(sql`'{}'::jsonb`),
+  /** 通用可见性：public / private */
+  visibility: varchar("visibility", { length: 16 }).notNull().default('public'),
+  /** 任务状态：draft/scheduled/publishing/published/partial_failed/failed */
+  status: varchar("status", { length: 16 }).notNull().default('draft'),
+  /** 本地定时发布时间（status=scheduled 时有效，到点由调度触发执行） */
+  scheduledAt: customTimestamptz("scheduled_at", { precision: 3 }),
+  publishedAt: customTimestamptz("published_at", { precision: 3 }),
+  /** 汇总失败原因 */
+  error: text("error"),
+  // System field: Creation time (auto-filled, do not modify)
+  createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  // System field: Creator (auto-filled, do not modify)
+  createdBy: userProfile("_created_by").default(sql`CASE
+    WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
+  // System field: Update time (auto-filled, do not modify)
+  updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  // System field: Updater (auto-filled, do not modify)
+  updatedBy: userProfile("_updated_by").default(sql`CASE
+    WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
+}, (table) => [
+  index("idx_publish_tasks_status").on(table.status),
+  index("idx_publish_tasks_scheduled").on(table.scheduledAt),
+  index("idx_publish_tasks_created").on(table.createdAt),
+]);
+
+export const socialPublishTargets = pgTable("social_publish_targets", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  taskId: uuid("task_id").notNull(),
+  platform: varchar("platform", { length: 32 }).notNull(),
+  accountId: uuid("account_id").notNull(),
+  /** 目标状态：pending/publishing/success/failed */
+  status: varchar("status", { length: 16 }).notNull().default('pending'),
+  error: text("error"),
+  /** 平台侧作品 ID（发布成功后） */
+  platformPostId: varchar("platform_post_id", { length: 200 }),
+  postUrl: text("post_url"),
+  publishedAt: customTimestamptz("published_at", { precision: 3 }),
+  // System field: Creation time (auto-filled, do not modify)
+  createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  // System field: Creator (auto-filled, do not modify)
+  createdBy: userProfile("_created_by").default(sql`CASE
+    WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
+  // System field: Update time (auto-filled, do not modify)
+  updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  // System field: Updater (auto-filled, do not modify)
+  updatedBy: userProfile("_updated_by").default(sql`CASE
+    WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
+}, (table) => [
+  index("idx_publish_targets_task").on(table.taskId),
+  index("idx_publish_targets_status").on(table.status),
+  foreignKey({
+    columns: [table.taskId],
+    foreignColumns: [socialPublishTasks.id],
+    name: "social_publish_targets_task_id_fkey",
+  }).onDelete("cascade"),
+  foreignKey({
+    columns: [table.accountId],
+    foreignColumns: [socialAccounts.id],
+    name: "social_publish_targets_account_id_fkey",
+  }).onDelete("cascade"),
+]);
+
 // table aliases
 export const socialAccountsTable = socialAccounts;
 export const socialContentVariantsTable = socialContentVariants;
@@ -356,3 +438,5 @@ export const socialMaterialsTable = socialMaterials;
 export const socialMetricsTable = socialMetrics;
 export const socialPublishPlansTable = socialPublishPlans;
 export const socialPostsTable = socialPosts;
+export const socialPublishTasksTable = socialPublishTasks;
+export const socialPublishTargetsTable = socialPublishTargets;

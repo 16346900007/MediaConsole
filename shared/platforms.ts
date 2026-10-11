@@ -82,3 +82,41 @@ export const PLATFORM_MAP: Record<SocialPlatform, PlatformMeta> = PLATFORMS.redu
   },
   {} as Record<SocialPlatform, PlatformMeta>,
 );
+
+/** 发布类型 */
+export type PublishType = 'video' | 'image' | 'article';
+
+export const PUBLISH_TYPE_LABELS: Record<PublishType, string> = {
+  video: '视频发布',
+  image: '图文发布',
+  article: '文章发布',
+};
+
+/**
+ * 各发布类型支持的平台矩阵（前端选择类型时按此过滤，不支持的平台不展示）
+ * 依据 7 平台发布能力调研：
+ * - video：7 平台全支持
+ * - image：快手网页端不支持图文、YouTube 社区帖子需门槛 → 不列
+ * - article：小红书仅 App、B站专栏需 Lv2、视频号/快手/YouTube 无文章形态 → 不列
+ */
+export const PUBLISH_TYPE_PLATFORMS: Record<PublishType, SocialPlatform[]> = {
+  video: ['douyin', 'xiaohongshu', 'bilibili', 'shipinhao', 'weibo', 'kuaishou', 'youtube'],
+  image: ['douyin', 'xiaohongshu', 'bilibili', 'shipinhao', 'weibo'],
+  article: ['douyin', 'weibo'],
+};
+
+/** 通用表单字段对平台的支持情况（value=支持的平台列表，用于标注"不支持：xxx"） */
+export const PUBLISH_FIELD_SUPPORT: Record<
+  string,
+  { label: string; platforms: SocialPlatform[] }
+> = {
+  title: { label: '标题', platforms: ['douyin', 'xiaohongshu', 'bilibili', 'kuaishou', 'youtube'] },
+  body: { label: '正文/描述', platforms: ['douyin', 'xiaohongshu', 'bilibili', 'shipinhao', 'weibo', 'kuaishou', 'youtube'] },
+  topic: { label: '话题', platforms: ['douyin', 'xiaohongshu', 'bilibili', 'shipinhao', 'weibo', 'kuaishou'] },
+  cover: { label: '封面', platforms: ['douyin', 'bilibili', 'kuaishou', 'youtube'] },
+  location: { label: '位置', platforms: ['douyin', 'xiaohongshu', 'shipinhao', 'weibo'] },
+  visibility: { label: '谁可以看', platforms: ['douyin', 'xiaohongshu', 'bilibili', 'shipinhao', 'weibo', 'youtube'] },
+  shortTitle: { label: '短标题（封面显示）', platforms: ['shipinhao'] },
+  category: { label: '分类', platforms: ['kuaishou'] },
+  madeForKids: { label: '儿童内容声明', platforms: ['youtube'] },
+};

@@ -384,3 +384,92 @@ export async function syncData(
   });
   return response.data;
 }
+
+/* ------------------------------------------------------------------ */
+/* 发布：任务 CRUD + 提交 + 文件上传                                    */
+/* ------------------------------------------------------------------ */
+
+import type {
+  FileUploadResponse,
+  PublishTask,
+  PublishTaskInput,
+} from '@shared/api.interface';
+
+export async function listPublishTasks(params?: {
+  status?: string;
+  publishType?: string;
+}): Promise<PublishTask[]> {
+  const response = await axiosForBackend({
+    url: '/api/social/publish/tasks',
+    method: 'GET',
+    params,
+  });
+  return response.data;
+}
+
+export async function getPublishTask(id: string): Promise<PublishTask> {
+  const response = await axiosForBackend({
+    url: `/api/social/publish/tasks/${id}`,
+    method: 'GET',
+  });
+  return response.data;
+}
+
+export async function createPublishTask(
+  data: PublishTaskInput,
+): Promise<PublishTask> {
+  const response = await axiosForBackend({
+    url: '/api/social/publish/tasks',
+    method: 'POST',
+    data,
+  });
+  return response.data;
+}
+
+export async function updatePublishTask(
+  id: string,
+  data: PublishTaskInput,
+): Promise<PublishTask> {
+  const response = await axiosForBackend({
+    url: `/api/social/publish/tasks/${id}`,
+    method: 'PATCH',
+    data,
+  });
+  return response.data;
+}
+
+export async function deletePublishTask(id: string): Promise<void> {
+  await axiosForBackend({
+    url: `/api/social/publish/tasks/${id}`,
+    method: 'DELETE',
+  });
+}
+
+export async function submitPublishTask(
+  id: string,
+  body: { asDraft?: boolean; scheduledAt?: string | null },
+): Promise<PublishTask> {
+  const response = await axiosForBackend({
+    url: `/api/social/publish/tasks/${id}/submit`,
+    method: 'POST',
+    data: body,
+  });
+  return response.data;
+}
+
+/** 统一文件上传（发布临时桶 publish-tmp；素材库后续用 materials） */
+export async function uploadPublishFile(
+  file: File,
+  bucket: 'publish-tmp' | 'materials' = 'publish-tmp',
+): Promise<FileUploadResponse> {
+  const form = new FormData();
+  form.append('file', file);
+  form.append('bucket', bucket);
+  const response = await axiosForBackend({
+    url: '/api/social/files/upload',
+    method: 'POST',
+    data: form,
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data;
+}

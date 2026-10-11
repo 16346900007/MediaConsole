@@ -14,6 +14,10 @@ import { OpenExternalController } from './open-external.controller';
 import { AppController } from './app.controller';
 import { DataController } from './data.controller';
 import { DataService } from './data.service';
+import { FilesController } from './files.controller';
+import { FilesService } from './files.service';
+import { PublishController } from './publish.controller';
+import { PublishService } from './publish.service';
 
 @Module({
   imports: [],
@@ -26,6 +30,8 @@ import { DataService } from './data.service';
     OpenExternalController,
     AppController,
     DataController,
+    FilesController,
+    PublishController,
   ],
   providers: [
     AccountsService,
@@ -35,6 +41,8 @@ import { DataService } from './data.service';
     AuthService,
     BrowserAuthService,
     DataService,
+    FilesService,
+    PublishService,
   ],
 })
 export class SocialModule {}

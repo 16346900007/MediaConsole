@@ -295,3 +295,48 @@ ALTER TABLE social_accounts
 -- 幂等迁移：数据页作品同步时间（10 分钟缓存刷新判据）
 ALTER TABLE social_accounts
   ADD COLUMN IF NOT EXISTS last_data_synced_at timestamptz(3);
+
+-- ============================================================
+-- 幂等迁移：发布单 + 发布目标（发布子系统）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS social_publish_tasks (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  publish_type varchar(16) NOT NULL,
+  title varchar(300) NOT NULL DEFAULT '',
+  body text NULL,
+  topic varchar(500) NULL,
+  location varchar(200) NULL,
+  cover_file_key text NULL,
+  media_file_keys jsonb NOT NULL DEFAULT '[]'::jsonb,
+  platform_fields jsonb NOT NULL DEFAULT '{}'::jsonb,
+  visibility varchar(16) NOT NULL DEFAULT 'public',
+  status varchar(16) NOT NULL DEFAULT 'draft',
+  scheduled_at timestamptz(3) NULL,
+  published_at timestamptz(3) NULL,
+  error text NULL,
+  _created_at timestamptz(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  _created_by user_profile NULL,
+  _updated_at timestamptz(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  _updated_by user_profile NULL
+);
+CREATE INDEX IF NOT EXISTS idx_publish_tasks_status ON social_publish_tasks (status);
+CREATE INDEX IF NOT EXISTS idx_publish_tasks_scheduled ON social_publish_tasks (scheduled_at);
+CREATE INDEX IF NOT EXISTS idx_publish_tasks_created ON social_publish_tasks (_created_at);
+
+CREATE TABLE IF NOT EXISTS social_publish_targets (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  task_id uuid NOT NULL REFERENCES social_publish_tasks(id) ON DELETE CASCADE,
+  platform varchar(32) NOT NULL,
+  account_id uuid NOT NULL REFERENCES social_accounts(id) ON DELETE CASCADE,
+  status varchar(16) NOT NULL DEFAULT 'pending',
+  error text NULL,
+  platform_post_id varchar(200) NULL,
+  post_url text NULL,
+  published_at timestamptz(3) NULL,
+  _created_at timestamptz(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  _created_by user_profile NULL,
+  _updated_at timestamptz(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  _updated_by user_profile NULL
+);
+CREATE INDEX IF NOT EXISTS idx_publish_targets_task ON social_publish_targets (task_id);
+CREATE INDEX IF NOT EXISTS idx_publish_targets_status ON social_publish_targets (status);

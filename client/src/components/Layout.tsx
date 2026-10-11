@@ -9,6 +9,7 @@ import {
   Images,
   LayoutDashboard,
   MoreVertical,
+  Send,
   Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -28,7 +29,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { to: '/', label: '工作台', icon: LayoutDashboard, end: true },
   { to: '/accounts', label: '账号矩阵', icon: Users },
-  { to: '/contents', label: '内容中心', icon: FileText },
+  { to: '/publish', label: '发布', icon: Send },
   { to: '/materials', label: '素材库', icon: Images },
 ];
 

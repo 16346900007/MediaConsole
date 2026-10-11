@@ -343,3 +343,89 @@ export interface DataSyncResponse {
   accounts: number;
   message?: string;
 }
+
+/* ------------------------------------------------------------------ */
+/* 发布（发布单 + 目标 + 文件服务）                                     */
+/* ------------------------------------------------------------------ */
+
+export type PublishType = 'video' | 'image' | 'article';
+export type PublishTaskStatus =
+  | 'draft' // 草稿（本地保存，未排期未发布）
+  | 'scheduled' // 已排期（本地定时，等待到点触发）
+  | 'publishing' // 发布中
+  | 'published' // 全部目标发布成功
+  | 'partial_failed' // 部分目标失败
+  | 'failed'; // 全部失败
+export type PublishTargetStatus = 'pending' | 'publishing' | 'success' | 'failed';
+
+/** 发布单（一份内容 + 批量发布目标） */
+export interface PublishTask {
+  id: string;
+  publishType: PublishType;
+  title: string;
+  /** 正文/描述（文章类型为全文） */
+  body: string;
+  /** 话题（#话题1 #话题2 或逗号分隔） */
+  topic: string;
+  /** 位置文本 */
+  location: string;
+  /** 封面文件 key（files 服务） */
+  coverFileKey: string | null;
+  /** 主体文件 key 列表（视频 1 个 / 图文多张 / 文章无） */
+  mediaFileKeys: string[];
+  /** 平台特有字段（按平台存 jsonb，如 { bilibili: { tid, tag, copyright } }） */
+  platformFields: Record<string, Record<string, unknown>>;
+  /** 通用字段可见性：public / private */
+  visibility: 'public' | 'private';
+  status: PublishTaskStatus;
+  /** 本地定时发布时间（status=scheduled 时有效） */
+  scheduledAt: string | null;
+  publishedAt: string | null;
+  error: string | null;
+  targets: PublishTarget[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 发布目标（一个平台的一个账号） */
+export interface PublishTarget {
+  id: string;
+  taskId: string;
+  platform: SocialPlatform;
+  accountId: string;
+  accountName?: string;
+  status: PublishTargetStatus;
+  error: string | null;
+  /** 平台侧作品 ID（发布成功后） */
+  platformPostId: string | null;
+  postUrl: string | null;
+  publishedAt: string | null;
+}
+
+/** 创建/更新发布单请求 */
+export interface PublishTaskInput {
+  publishType: PublishType;
+  title?: string;
+  body?: string;
+  topic?: string;
+  location?: string;
+  coverFileKey?: string | null;
+  mediaFileKeys?: string[];
+  platformFields?: Record<string, Record<string, unknown>>;
+  visibility?: 'public' | 'private';
+  /** 目标：platform + accountId 列表 */
+  targets?: { platform: SocialPlatform; accountId: string }[];
+  /** 保存为草稿 */
+  asDraft?: boolean;
+  /** 本地定时发布时间（ISO）；不传=立即 */
+  scheduledAt?: string | null;
+}
+
+/** 文件上传响应 */
+export interface FileUploadResponse {
+  fileKey: string;
+  /** 读取地址（GET /api/social/files/:bucket/:key） */
+  url: string;
+  size: number;
+  mime: string;
+}
