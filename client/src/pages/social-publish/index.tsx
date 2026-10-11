@@ -11,6 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { PLATFORM_LOGOS } from '@/utils/platform-logos';
 import { resolveErrorMessage } from '../social-analytics/helpers';
 import PublishTypeDialog from './publish-type-dialog';
 
@@ -163,13 +164,13 @@ export default function SocialPublish() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
                         {task.targets.slice(0, 6).map((t) => (
-                          <span
+                          <img
                             key={t.id}
+                            src={PLATFORM_LOGOS[t.platform as keyof typeof PLATFORM_LOGOS]}
+                            alt={PLATFORM_MAP[t.platform]?.name ?? t.platform}
                             title={PLATFORM_MAP[t.platform]?.name ?? t.platform}
-                            className="flex size-6 items-center justify-center rounded-none bg-[#F1F5F9] text-[10px] font-black text-[#475569]"
-                          >
-                            {PLATFORM_MAP[t.platform]?.name?.slice(0, 1) ?? '?'}
-                          </span>
+                            className="size-6 rounded-none object-contain bg-[#F1F5F9] p-0.5"
+                          />
                         ))}
                         {task.targets.length > 6 && (
                           <span className="text-[10px] font-bold text-[#94A3B8]">

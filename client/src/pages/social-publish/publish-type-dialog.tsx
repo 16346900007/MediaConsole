@@ -1,5 +1,6 @@
 import { Video, Image as ImageIcon, FileText } from 'lucide-react';
 import { PLATFORM_MAP, PUBLISH_TYPE_LABELS, PUBLISH_TYPE_PLATFORMS, type PublishType } from '@shared/platforms';
+import { PLATFORM_LOGOS } from '@/utils/platform-logos';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -62,16 +63,16 @@ export default function PublishTypeDialog({ onSelect, onClose }: Props) {
                 </span>
                 <div className="flex flex-wrap gap-1.5">
                   {platforms.map((p) => (
-                    <span
+                    <img
                       key={p}
+                      src={PLATFORM_LOGOS[p as keyof typeof PLATFORM_LOGOS]}
+                      alt={PLATFORM_MAP[p]?.name}
                       title={PLATFORM_MAP[p]?.name}
                       className={cn(
-                        'flex size-7 items-center justify-center rounded-none text-[11px] font-black',
-                        'bg-[#F1F5F9] text-[#475569]',
+                        'size-7 rounded-none object-contain',
+                        'bg-[#F1F5F9] p-0.5',
                       )}
-                    >
-                      {PLATFORM_MAP[p]?.name?.slice(0, 1) ?? '?'}
-                    </span>
+                    />
                   ))}
                 </div>
               </button>
