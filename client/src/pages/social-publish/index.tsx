@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { resolveErrorMessage } from '../social-analytics/helpers';
+import PublishTypeDialog from './publish-type-dialog';
 
 const STATUS_LABELS: Record<string, string> = {
   draft: '草稿',
@@ -36,6 +37,7 @@ export default function SocialPublish() {
   const [tasks, setTasks] = useState<PublishTask[] | null>(null);
   const [statusFilter, setStatusFilter] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [showTypeDialog, setShowTypeDialog] = useState(false);
 
   const load = async () => {
     setError(null);
@@ -73,12 +75,23 @@ export default function SocialPublish() {
         <Button
           type="button"
           className="rounded-none bg-[#0033A0] text-white hover:bg-[#00236E]"
-          onClick={() => navigate('/publish/new')}
+          onClick={() => setShowTypeDialog(true)}
         >
           <Plus className="size-4" />
           新建发布
         </Button>
       </div>
+
+      {/* 新建发布 → 先选择发布类型 */}
+      {showTypeDialog && (
+        <PublishTypeDialog
+          onSelect={(type) => {
+            setShowTypeDialog(false);
+            navigate(`/publish/new?type=${type}`);
+          }}
+          onClose={() => setShowTypeDialog(false)}
+        />
+      )}
 
       {/* 状态筛选 */}
       <div className="flex flex-wrap gap-2">

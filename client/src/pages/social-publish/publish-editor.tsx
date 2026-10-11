@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { resolveErrorMessage } from '../social-analytics/helpers';
+import PublishTypeDialog from './publish-type-dialog';
 
 /** 平台特有字段定义（编辑页按选中平台展示，存 platformFields） */
 interface ExtraField {
@@ -298,12 +299,12 @@ export default function PublishEditor() {
 
   if (!publishType) {
     return (
-      <div className="max-w-7xl mx-auto px-8 pt-8 pb-20">
-        <p className="text-[12px] font-medium text-[#EF4444]">缺少发布类型</p>
-        <Button type="button" variant="outline" className="mt-4 rounded-none" onClick={() => navigate('/publish')}>
-          返回发布列表
-        </Button>
-      </div>
+      <PublishTypeDialog
+        onSelect={(type) => {
+          navigate(`/publish/new?type=${type}`);
+        }}
+        onClose={() => navigate('/publish')}
+      />
     );
   }
 
