@@ -124,7 +124,7 @@ export default function PublishEditor() {
 
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
-  const [topic, setTopic] = useState('');
+  const [topics, setTopics] = useState<string[]>([]);
   const [location, setLocation] = useState('');
   const [visibility, setVisibility] = useState<'public' | 'private'>('public');
   const [coverFileKey, setCoverFileKey] = useState<string | null>(null);
@@ -161,7 +161,7 @@ export default function PublishEditor() {
       setPublishType(task.publishType);
       setTitle(task.title);
       setBody(task.body ?? '');
-      setTopic(task.topic ?? '');
+      setTopics(parseTopics(task.topic));
       setLocation(task.location ?? '');
       setVisibility(task.visibility);
       setCoverFileKey(task.coverFileKey);
@@ -310,7 +310,7 @@ export default function PublishEditor() {
       publishType,
       title,
       body,
-      topic,
+      topic: topics.map((t) => `#${t}`).join(' '),
       location,
       coverFileKey,
       mediaFileKeys,
@@ -767,7 +767,7 @@ export default function PublishEditor() {
             BASIC INFO · 非通用字段标注「不支持哪些平台」
           </p>
         </div>
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4">
           <Field label="标题" unsupported={unsupportedOf('title')}>
             <input
               value={title}
@@ -777,31 +777,32 @@ export default function PublishEditor() {
             />
           </Field>
           <Field label="话题" unsupported={unsupportedOf('topic')}>
-            <input
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              placeholder="#话题1 #话题2（逗号或空格分隔）"
-              className="w-full rounded-none border border-[#E2E8F0] bg-white px-3 py-2 text-sm outline-none focus:border-[#0033A0]"
+            <TopicCapsuleInput
+              value={topics}
+              onChange={setTopics}
+              placeholder="#话题1 输入后回车生成标签，可删除"
             />
           </Field>
-          <Field label="位置" unsupported={unsupportedOf('location')}>
-            <input
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="可选，如：广东惠州"
-              className="w-full rounded-none border border-[#E2E8F0] bg-white px-3 py-2 text-sm outline-none focus:border-[#0033A0]"
-            />
-          </Field>
-          <Field label="谁可以看" unsupported={unsupportedOf('visibility')}>
-            <select
-              value={visibility}
-              onChange={(e) => setVisibility(e.target.value as 'public' | 'private')}
-              className="w-full rounded-none border border-[#E2E8F0] bg-white px-3 py-2 text-sm outline-none focus:border-[#0033A0]"
-            >
-              <option value="public">公开</option>
-              <option value="private">私密</option>
-            </select>
-          </Field>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <Field label="位置" unsupported={unsupportedOf('location')}>
+              <input
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="可选，如：广东惠州"
+                className="w-full rounded-none border border-[#E2E8F0] bg-white px-3 py-2 text-sm outline-none focus:border-[#0033A0]"
+              />
+            </Field>
+            <Field label="谁可以看" unsupported={unsupportedOf('visibility')}>
+              <select
+                value={visibility}
+                onChange={(e) => setVisibility(e.target.value as 'public' | 'private')}
+                className="w-full rounded-none border border-[#E2E8F0] bg-white px-3 py-2 text-sm outline-none focus:border-[#0033A0]"
+              >
+                <option value="public">公开</option>
+                <option value="private">私密</option>
+              </select>
+            </Field>
+          </div>
         </div>
 
         <div className="mt-4">
@@ -1454,5 +1455,77 @@ function AccountPickerDialog({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** 将话题字符串解析为标签数组：兼容逗号/空格分隔、自动去除 # 前缀 */
+function parseTopics(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  return raw
+    .split(/[\s,，]+/)
+    .map((s) => s.trim().replace(/^#+/, ''))
+    .filter(Boolean);
+}
+
+/** 话题胶囊输入：回车/逗号生成胶囊，点击 × 删除，退格删除最后一个 */
+function TopicCapsuleInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string[];
+  onChange: (next: string[]) => void;
+  placeholder?: string;
+}) {
+  const [draft, setDraft] = useState('');
+
+  const add = (raw: string): void => {
+    const t = raw.trim().replace(/^#+/, '');
+    if (!t) return;
+    if (value.length >= 15) return;
+    onChange(value.includes(t) ? value : [...value, t]);
+    setDraft('');
+  };
+
+  const remove = (t: string): void => {
+    onChange(value.filter((x) => x !== t));
+  };
+
+  return (
+    <div className="flex w-full flex-wrap items-center gap-1.5 rounded-none border border-[#E2E8F0] bg-white px-2 py-1.5 text-sm transition-colors focus-within:border-[#0033A0]">
+      {value.map((t) => (
+        <span
+          key={t}
+          className="flex items-center gap-1 rounded-sm bg-[#EFF4FF] px-2 py-0.5 text-[12px] font-bold text-[#0033A0]"
+        >
+          #{t}
+          <button
+            type="button"
+            onClick={() => remove(t)}
+            aria-label={`删除话题 ${t}`}
+            className="text-[#0033A0] opacity-60 transition-opacity hover:opacity-100"
+          >
+            <X className="size-3" />
+          </button>
+        </span>
+      ))}
+      <input
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            add(draft);
+          } else if (e.key === 'Backspace' && !draft && value.length > 0) {
+            onChange(value.slice(0, -1));
+          }
+        }}
+        onBlur={() => {
+          if (draft.trim()) add(draft);
+        }}
+        placeholder={value.length > 0 ? '' : placeholder}
+        className="min-w-[120px] flex-1 border-none bg-transparent px-1 py-1 text-sm outline-none placeholder:text-[#94A3B8]"
+      />
+    </div>
   );
 }
