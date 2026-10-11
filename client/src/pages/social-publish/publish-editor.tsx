@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
+import { toast } from 'sonner';
 import {
   ArrowLeft,
   CalendarClock,
@@ -120,7 +121,6 @@ export default function PublishEditor() {
   const [publishType, setPublishType] = useState<PublishType | null>(initialType);
   const [loading, setLoading] = useState<boolean>(!!id);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -155,7 +155,6 @@ export default function PublishEditor() {
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true);
-    setError(null);
     try {
       const task = await getPublishTask(id);
       setPublishType(task.publishType);
@@ -173,7 +172,7 @@ export default function PublishEditor() {
         setScheduleAt(task.scheduledAt.slice(0, 16));
       }
     } catch (e) {
-      setError(resolveErrorMessage(e));
+      toast.error(`加载失败：${resolveErrorMessage(e)}`);
     } finally {
       setLoading(false);
     }
@@ -242,7 +241,7 @@ export default function PublishEditor() {
     if (kind === 'media' && publishType === 'video') {
       const room = Math.max(0, 5 - mediaFileKeys.length);
       if (list.length > room) {
-        setError(`视频最多上传 5 个，已忽略多余文件`);
+        toast.warning(`视频最多上传 5 个，已忽略多余文件`);
         list = list.slice(0, room);
       }
       if (list.length === 0) return;
@@ -259,11 +258,10 @@ export default function PublishEditor() {
       return !allowed.includes(`.${ext}`) && !allowed.split(',').includes(f.type);
     });
     if (bad) {
-      setError(`不支持的文件类型：${bad.name}`);
+      toast.warning(`不支持的文件类型：${bad.name}`);
       return;
     }
     setUploading(true);
-    setError(null);
     try {
       if (kind === 'cover') {
         const r = await uploadPublishFile(list[0]);
@@ -280,7 +278,7 @@ export default function PublishEditor() {
         setMediaNames((prev) => [...prev, ...names]);
       }
     } catch (e) {
-      setError(`上传失败：${resolveErrorMessage(e)}`);
+      toast.error(`上传失败：${resolveErrorMessage(e)}`);
     } finally {
       setUploading(false);
     }
@@ -322,15 +320,15 @@ export default function PublishEditor() {
 
   const handleSaveDraft = async () => {
     setSaving(true);
-    setError(null);
     try {
       const input = buildInput();
       const task = id
         ? await updatePublishTask(id, { ...input, asDraft: true })
         : await createPublishTask({ ...input, asDraft: true });
+      toast.success('草稿已保存');
       navigate(`/publish/${task.id}`);
     } catch (e) {
-      setError(resolveErrorMessage(e));
+      toast.error(`保存失败：${resolveErrorMessage(e)}`);
     } finally {
       setSaving(false);
     }
@@ -356,21 +354,20 @@ export default function PublishEditor() {
   const handlePublishNow = async () => {
     const v = validatePublish();
     if (v) {
-      setError(v);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      toast.error(v);
       return;
     }
     setSaving(true);
-    setError(null);
     try {
       const input = buildInput();
       const task = id
         ? await updatePublishTask(id, input)
         : await createPublishTask(input);
       await submitPublishTask(task.id, { asDraft: false });
+      toast.success('已提交发布');
       navigate('/publish');
     } catch (e) {
-      setError(resolveErrorMessage(e));
+      toast.error(`发布失败：${resolveErrorMessage(e)}`);
     } finally {
       setSaving(false);
     }
@@ -378,18 +375,15 @@ export default function PublishEditor() {
 
   const handleSchedule = async () => {
     if (!scheduleAt) {
-      setError('请先选择定时发布时间');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      toast.error('请先选择定时发布时间');
       return;
     }
     const v = validatePublish();
     if (v) {
-      setError(v);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      toast.error(v);
       return;
     }
     setSaving(true);
-    setError(null);
     try {
       const input = buildInput();
       const task = id
@@ -397,9 +391,10 @@ export default function PublishEditor() {
         : await createPublishTask(input);
       const iso = new Date(scheduleAt).toISOString();
       await submitPublishTask(task.id, { scheduledAt: iso });
+      toast.success('已设置定时发布');
       navigate('/publish');
     } catch (e) {
-      setError(resolveErrorMessage(e));
+      toast.error(`发布失败：${resolveErrorMessage(e)}`);
     } finally {
       setSaving(false);
     }
@@ -438,12 +433,6 @@ export default function PublishEditor() {
         <ArrowLeft className="size-3.5" />
         返回发布列表
       </button>
-
-      {error && (
-        <div className="rounded-none border border-[#EF4444] bg-[#FEF2F2] px-4 py-3 text-[12px] font-medium text-[#EF4444]">
-          {error}
-        </div>
-      )}
 
       {/* 01 发布内容 */}
       <section className="rounded-none border-t-[3px] border-t-[#0033A0] bg-white shadow-md p-6">
@@ -772,7 +761,7 @@ export default function PublishEditor() {
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="各平台标题（微博发博无标题字段，自动省略）"
+              placeholder="标题"
               className="w-full rounded-none border border-[#E2E8F0] bg-white px-3 py-2 text-sm outline-none focus:border-[#0033A0]"
             />
           </Field>
