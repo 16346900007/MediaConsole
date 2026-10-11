@@ -21,7 +21,17 @@
             "core:default",
             "core:window:allow-close",
             "core:webview:allow-create-webview-window",
-            "opener:default"
+            "opener:default",
+            "dialog:allow-save",
+            "dialog:allow-message",
+            {
+              "identifier": "fs:allow-write-file",
+              "allow": [{ "path": "**" }]
+            },
+            {
+              "identifier": "fs:allow-write-text-file",
+              "allow": [{ "path": "**" }]
+            }
           ]
         }
       ]

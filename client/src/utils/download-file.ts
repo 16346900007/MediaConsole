@@ -1,32 +1,76 @@
 import JSZip from 'jszip';
+import { save } from '@tauri-apps/plugin-dialog';
+import { writeFile } from '@tauri-apps/plugin-fs';
 
-interface SaveFilePickerHandle {
+const isTauriEnv = (): boolean =>
+  typeof window !== 'undefined' &&
+  '__TAURI_INTERNALS__' in window;
+
+interface SavePickerHandle {
   createWritable: () => Promise<{
     write: (b: Blob) => Promise<void>;
     close: () => Promise<void>;
   }>;
 }
 
-interface SaveFilePickerOptions {
+interface SavePickerOptions {
   suggestedName: string;
-  types?: Array<{
-    description: string;
-    accept: Record<string, string[]>;
-  }>;
+  types?: Array<{ description: string; accept: Record<string, string[]> }>;
 }
 
 type WindowWithPicker = Window & {
-  showSaveFilePicker?: (options: SaveFilePickerOptions) => Promise<SaveFilePickerHandle>;
+  showSaveFilePicker?: (options: SavePickerOptions) => Promise<SavePickerHandle>;
 };
 
+const FILE_FILTERS = [
+  {
+    name: '文件',
+    extensions: ['zip', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4', 'webm', 'mov', 'pdf', 'txt'],
+  },
+];
+
+/** 拉取文件（Tauri 走 axios 支持进度；Web 走 fetch） */
+async function fetchBlobWithProgress(
+  url: string,
+  onProgress?: (pct: number) => void,
+): Promise<Blob> {
+  if (isTauriEnv()) {
+    const { default: axios } = await import('axios');
+    const resp = await axios.get(url, {
+      responseType: 'blob',
+      onDownloadProgress: (e) => {
+        if (e.total) onProgress?.(Math.round((e.loaded / e.total) * 100));
+      },
+    });
+    return resp.data as Blob;
+  }
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`下载失败（HTTP ${res.status}）`);
+  }
+  return res.blob();
+}
+
 /**
- * 优先使用浏览器「另存为」对话框让用户选择保存位置（showSaveFilePicker），
- * 失败（非安全上下文 / 环境不支持）时回退到普通 Blob 下载。
+ * 保存文件：
+ * - Tauri：弹系统「另存为」对话框让用户选位置，再写盘
+ * - Web：showSaveFilePicker 选位置；不支持则回退普通浏览器下载
+ * 返回 true=已保存/已触发，false=用户取消
  */
-async function saveBlobWithPicker(
+async function saveFile(
   blob: Blob,
   suggestedName: string,
 ): Promise<boolean> {
+  if (isTauriEnv()) {
+    const path = await save({
+      defaultPath: suggestedName,
+      filters: FILE_FILTERS,
+    });
+    if (!path) return false;
+    await writeFile(path, new Uint8Array(await blob.arrayBuffer()));
+    return true;
+  }
+
   const picker = (window as WindowWithPicker).showSaveFilePicker;
 
   if (typeof picker === 'function') {
@@ -47,12 +91,7 @@ async function saveBlobWithPicker(
       await writable.close();
       return true;
     } catch (error: unknown) {
-      // 用户取消对话框或环境不支持：回退普通下载
-      if (
-        error instanceof DOMException &&
-        error.name === 'AbortError'
-      ) {
-        // 用户主动取消，不再回退
+      if (error instanceof DOMException && error.name === 'AbortError') {
         return false;
       }
     }
@@ -69,17 +108,14 @@ async function saveBlobWithPicker(
   return true;
 }
 
-/** 下载单个文件：优先选保存位置 */
+/** 下载单个文件（可带进度回调 0-100） */
 export async function downloadFileByBlob(
   url: string,
   name: string,
+  onProgress?: (pct: number) => void,
 ): Promise<void> {
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`下载失败（HTTP ${res.status}）`);
-  }
-  const blob = await res.blob();
-  await saveBlobWithPicker(blob, name);
+  const blob = await fetchBlobWithProgress(url, onProgress);
+  await saveFile(blob, name);
 }
 
 export interface ZipEntry {
@@ -87,11 +123,15 @@ export interface ZipEntry {
   name: string;
 }
 
-/** 批量下载：全部打包为 zip（优先选保存位置） */
+/**
+ * 批量下载：全部打包为 zip。
+ * 整体进度（拉取+压缩）通过 onProgress 回报 0-100。
+ */
 export async function downloadFilesAsZip(
   entries: ZipEntry[],
   zipName: string,
-): Promise<{ okCount: number; failCount: number }> {
+  onProgress?: (pct: number) => void,
+): Promise<{ okCount: number; failCount: number; cancelled: boolean }> {
   const zip = new JSZip();
   const usedNames = new Set<string>();
   let failCount = 0;
@@ -99,9 +139,8 @@ export async function downloadFilesAsZip(
   await Promise.all(
     entries.map(async (entry): Promise<void> => {
       try {
-        const res = await fetch(entry.url);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const blob = await res.blob();
+        const blob = await fetchBlobWithProgress(entry.url);
+        if (!blob) throw new Error('empty');
         let name = entry.name;
         if (usedNames.has(name)) {
           const dot = name.lastIndexOf('.');
@@ -128,7 +167,8 @@ export async function downloadFilesAsZip(
     type: 'blob',
     compression: 'DEFLATE',
     compressionOptions: { level: 6 },
+    onUpdate: (meta) => onProgress?.(Math.round(meta.percent)),
   });
-  await saveBlobWithPicker(zipBlob, zipName);
-  return { okCount, failCount };
+  const saved = await saveFile(zipBlob, zipName);
+  return { okCount, failCount, cancelled: !saved };
 }

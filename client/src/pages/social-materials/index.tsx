@@ -79,6 +79,10 @@ const SocialMaterials: FC = () => {
   const [moving, setMoving] = useState(false);
   const [preview, setPreview] = useState<MaterialItem | null>(null);
   const [previewList, setPreviewList] = useState<MaterialItem[]>([]);
+  const [downloadProgress, setDownloadProgress] = useState<{
+    name: string;
+    pct: number;
+  } | null>(null);
 
   const openPreview = (item: MaterialItem): void => {
     // 同类型素材组成预览列表，便于左右切换
@@ -129,6 +133,13 @@ const SocialMaterials: FC = () => {
     void loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typeFilter, activeGroup, keyword, page, pageSize]);
+
+  // 单文件下载完成（100%）后自动收起进度浮条
+  useEffect(() => {
+    if (!downloadProgress || downloadProgress.pct < 100) return;
+    const t = setTimeout(() => setDownloadProgress(null), 1200);
+    return () => clearTimeout(t);
+  }, [downloadProgress]);
 
   const handleSelectGroup = (group: string): void => {
     setActiveGroup(group);
@@ -196,27 +207,36 @@ const SocialMaterials: FC = () => {
     if (targets.length === 0) return;
     try {
       if (targets.length === 1) {
-        await downloadFileByBlob(targets[0].fileUrl, targets[0].name);
-        toast.success('已开始下载');
+        setDownloadProgress({ name: targets[0].name, pct: 0 });
+        await downloadFileByBlob(targets[0].fileUrl, targets[0].name, (pct) =>
+          setDownloadProgress({ name: targets[0].name, pct }),
+        );
+        setDownloadProgress(null);
+        toast.success('已保存');
         return;
       }
       const zipName = `素材下载_${new Date()
         .toISOString()
         .slice(0, 10)
         .replace(/-/g, '')}_${targets.length}个.zip`;
-      const { okCount, failCount } = await downloadFilesAsZip(
+      setDownloadProgress({ name: `打包 ${targets.length} 个素材`, pct: 0 });
+      const { okCount, failCount, cancelled } = await downloadFilesAsZip(
         targets.map((m: MaterialItem) => ({
           url: m.fileUrl,
           name: m.name,
         })),
         zipName,
+        (pct) => setDownloadProgress({ name: `打包 ${targets.length} 个素材`, pct }),
       );
+      setDownloadProgress(null);
+      if (cancelled) return;
       toast.success(
         failCount > 0
           ? `已打包 ${okCount} 个素材，${failCount} 个失败`
           : `已打包 ${okCount} 个素材`,
       );
     } catch (error: unknown) {
+      setDownloadProgress(null);
       toast.error(
         `下载失败：${error instanceof Error ? error.message : String(error)}`,
       );
@@ -405,6 +425,9 @@ const SocialMaterials: FC = () => {
                       onChanged={() => {
                         void loadData();
                       }}
+                      onDownloadProgress={(pct) =>
+                        setDownloadProgress({ name: item.name, pct })
+                      }
                     />
                   )}
                   <div className="flex aspect-square items-center justify-center bg-[#F8FAFC]">
@@ -633,6 +656,31 @@ const SocialMaterials: FC = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* 下载进度浮条 */}
+      {downloadProgress && (
+        <div className="fixed bottom-5 left-1/2 z-50 w-[320px] -translate-x-1/2 border-t-[3px] border-t-[#0033A0] bg-white p-4 shadow-md">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="truncate pr-3 text-[12px] font-bold text-[#1A1A1A]">
+              {downloadProgress.name}
+            </span>
+            <span className="shrink-0 font-mono text-[12px] font-bold text-[#0033A0]">
+              {downloadProgress.pct}%
+            </span>
+          </div>
+          <div className="h-1.5 w-full bg-[#E2E8F0]">
+            <div
+              className="h-full bg-[#0033A0] transition-all duration-200"
+              style={{ width: `${downloadProgress.pct}%` }}
+            />
+          </div>
+          {downloadProgress.pct >= 100 && (
+            <div className="mt-2 text-[12px] font-medium text-[#10B981]">
+              保存完成
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

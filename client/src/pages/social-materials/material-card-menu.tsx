@@ -36,12 +36,14 @@ interface MaterialCardMenuProps {
   item: MaterialItem;
   groups: MaterialGroup[];
   onChanged: () => void;
+  onDownloadProgress?: (pct: number) => void;
 }
 
 const MaterialCardMenu: FC<MaterialCardMenuProps> = ({
   item,
   groups,
   onChanged,
+  onDownloadProgress,
 }) => {
   const [moveOpen, setMoveOpen] = useState(false);
   const [targetGroup, setTargetGroup] = useState<string>('');
@@ -49,7 +51,7 @@ const MaterialCardMenu: FC<MaterialCardMenuProps> = ({
 
   const handleDownload = async (): Promise<void> => {
     try {
-      await downloadFileByBlob(item.fileUrl, item.name);
+      await downloadFileByBlob(item.fileUrl, item.name, onDownloadProgress);
     } catch (error: unknown) {
       toast.error(
         `下载失败：${error instanceof Error ? error.message : String(error)}`,
