@@ -60,6 +60,8 @@ const UploadMaterialDialog: FC<UploadMaterialDialogProps> = ({
   const [files, setFiles] = useState<UploadFileItem[]>([]);
   const [groupName, setGroupName] = useState<string>('');
   const [uploading, setUploading] = useState(false);
+  /** 每个文件的实时上传进度（0-100；失败标记为 -1） */
+  const [progress, setProgress] = useState<Record<string, number>>({});
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const selected = e.target.files;
@@ -79,6 +81,11 @@ const UploadMaterialDialog: FC<UploadMaterialDialogProps> = ({
     setFiles((prev: UploadFileItem[]): UploadFileItem[] =>
       prev.filter((item: UploadFileItem): boolean => item.id !== id),
     );
+    setProgress((prev: Record<string, number>): Record<string, number> => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   };
 
   const handleUpload = async (): Promise<void> => {
@@ -87,8 +94,14 @@ const UploadMaterialDialog: FC<UploadMaterialDialogProps> = ({
       return;
     }
     setUploading(true);
+    // 全部置 0，逐项递进
+    setProgress(
+      Object.fromEntries(files.map((item: UploadFileItem): [string, number] => [item.id, 0])),
+    );
+    let currentId = '';
     try {
       for (const item of files) {
+        currentId = item.id;
         // 视频上传时本地截帧，作为独立缩略图一并上传
         let thumb: File | null = null;
         if (item.type === 'video') {
@@ -97,7 +110,12 @@ const UploadMaterialDialog: FC<UploadMaterialDialogProps> = ({
         const uploaded = await uploadPublishFile(
           item.file,
           'materials',
-          undefined,
+          (p: number) => {
+            setProgress((prev: Record<string, number>): Record<string, number> => ({
+              ...prev,
+              [item.id]: p,
+            }));
+          },
           thumb,
         );
         await createMaterial({
@@ -111,6 +129,10 @@ const UploadMaterialDialog: FC<UploadMaterialDialogProps> = ({
           height: null,
           thumbnailUrl: uploaded.thumbUrl ?? null,
         });
+        setProgress((prev: Record<string, number>): Record<string, number> => ({
+          ...prev,
+          [item.id]: 100,
+        }));
       }
       toast.success(`成功上传 ${files.length} 个文件`);
       onUploaded();
@@ -118,6 +140,11 @@ const UploadMaterialDialog: FC<UploadMaterialDialogProps> = ({
       setGroupName('');
       onClose();
     } catch (error: unknown) {
+      // 当前失败项标记为失败（进度条红色），其余保持原样
+      setProgress((prev: Record<string, number>): Record<string, number> => ({
+        ...prev,
+        [currentId]: -1,
+      }));
       toast.error(`上传失败：${extractErrorMessage(error)}`);
     } finally {
       setUploading(false);
@@ -186,33 +213,61 @@ const UploadMaterialDialog: FC<UploadMaterialDialogProps> = ({
 
         {files.length > 0 && (
           <div className="mt-4 max-h-[240px] space-y-2 overflow-y-auto">
-            {files.map((item: UploadFileItem) => (
-              <div
-                key={item.id}
-                className="flex items-center gap-3 rounded-none border border-[#E2E8F0] px-3 py-2"
-              >
-                {item.type === 'image' ? (
-                  <ImageIcon className="size-5 shrink-0 text-[#3B82F6]" />
-                ) : (
-                  <PlaySquare className="size-5 shrink-0 text-[#F97316]" />
-                )}
-                <span className="min-w-0 flex-1 truncate text-sm font-medium text-[#1A1A1A]">
-                  {item.file.name}
-                </span>
-                <span className="shrink-0 text-[12px] font-medium text-[#94A3B8]">
-                  {formatSize(item.file.size)}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleRemove(item.id)}
-                  className="shrink-0 text-[#94A3B8] transition-colors hover:text-[#EF4444]"
-                  aria-label="移除"
-                  disabled={uploading}
+            {files.map((item: UploadFileItem) => {
+              const p = progress[item.id];
+              const showBar = uploading && p !== undefined;
+              return (
+                <div
+                  key={item.id}
+                  className="rounded-none border border-[#E2E8F0] px-3 py-2"
                 >
-                  <Trash2 className="size-4" />
-                </button>
-              </div>
-            ))}
+                  <div className="flex items-center gap-3">
+                    {item.type === 'image' ? (
+                      <ImageIcon className="size-5 shrink-0 text-[#3B82F6]" />
+                    ) : (
+                      <PlaySquare className="size-5 shrink-0 text-[#F97316]" />
+                    )}
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-[#1A1A1A]">
+                      {item.file.name}
+                    </span>
+                    {showBar && (
+                      <span
+                        className={`shrink-0 font-mono text-[12px] font-bold ${
+                          p === -1 ? 'text-[#EF4444]' : 'text-[#0033A0]'
+                        }`}
+                      >
+                        {p === -1 ? '失败' : `${Math.round(p ?? 0)}%`}
+                      </span>
+                    )}
+                    <span className="shrink-0 text-[12px] font-medium text-[#94A3B8]">
+                      {formatSize(item.file.size)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemove(item.id)}
+                      className="shrink-0 text-[#94A3B8] transition-colors hover:text-[#EF4444]"
+                      aria-label="移除"
+                      disabled={uploading}
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                  {showBar && (
+                    <div className="mt-2 h-1 w-full overflow-hidden rounded-none bg-[#E2E8F0]">
+                      <div
+                        className="h-full transition-[width] duration-200"
+                        style={{
+                          width: `${
+                            p === -1 ? 100 : Math.max(0, Math.min(100, p ?? 0))
+                          }%`,
+                          backgroundColor: p === -1 ? '#EF4444' : '#0033A0',
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
