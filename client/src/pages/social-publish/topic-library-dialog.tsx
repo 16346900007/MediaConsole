@@ -131,7 +131,10 @@ const TopicLibraryDialog: FC<TopicLibraryDialogProps> = ({
   return (
     <>
       <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-        <DialogContent className="w-[760px] max-w-[92vw] rounded-none border-t-[3px] border-t-[#0033A0] p-0 shadow-md">
+        <DialogContent
+          className="w-[760px] max-w-[92vw] rounded-none border-t-[3px] border-t-[#0033A0] p-0 shadow-md"
+          showCloseButton={false}
+        >
           <DialogTitle className="sr-only">话题标签管理</DialogTitle>
           <div className="flex items-center justify-between gap-3 border-b border-[#E2E8F0] px-6 py-4">
             <div>
@@ -219,7 +222,7 @@ const TopicLibraryDialog: FC<TopicLibraryDialogProps> = ({
                         ))}
                       </div>
                     )}
-                    <div className="mt-2.5 flex items-center gap-1.5">
+                    <div className="mt-3 flex items-center gap-1.5 border-t border-[#E2E8F0] pt-2.5">
                       <button
                         type="button"
                         onClick={() => toggleGroup(g.tags)}
@@ -247,14 +250,23 @@ const TopicLibraryDialog: FC<TopicLibraryDialogProps> = ({
           </div>
 
           <div className="flex items-center justify-between gap-3 border-t border-[#E2E8F0] px-6 py-4">
-            <Button
-              variant="outline"
-              onClick={() => setEditing('new')}
-              className="rounded-none border-[#0033A0] text-[#0033A0] hover:bg-[#EFF4FF]"
-            >
-              <Plus className="size-4" />
-              新建分组
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setEditing('new')}
+                className="rounded-none border-[#0033A0] text-[#0033A0] hover:bg-[#EFF4FF]"
+              >
+                <Plus className="size-4" />
+                新建分组
+              </Button>
+              <Button
+                variant="outline"
+                onClick={onClose}
+                className="rounded-none border-[#E2E8F0] text-[#475569] hover:bg-slate-100"
+              >
+                取消
+              </Button>
+            </div>
             <div className="flex items-center gap-3">
               <span className="text-[12px] font-bold text-[#0033A0]">
                 已选 {selected.size} 个
@@ -262,7 +274,7 @@ const TopicLibraryDialog: FC<TopicLibraryDialogProps> = ({
               <Button
                 onClick={apply}
                 className="rounded-none bg-[#0033A0] px-6 hover:bg-[#00236E]"
-              >
+                >
                 确定应用
               </Button>
             </div>
