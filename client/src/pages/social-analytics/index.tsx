@@ -393,22 +393,22 @@ const SocialAnalytics: React.FC = () => {
                               </span>
                             </div>
                           </td>
-                          <td className="px-4 py-3 font-mono text-right text-sm font-medium text-[#1A1A1A]">
+                          <td className="px-4 py-3 font-mono text-left text-sm font-medium text-[#1A1A1A]">
                             {formatCount(acct.postCount)}
                           </td>
-                          <td className="px-4 py-3 font-mono text-right text-sm font-medium text-[#1A1A1A]">
+                          <td className="px-4 py-3 font-mono text-left text-sm font-medium text-[#1A1A1A]">
                             {formatCount(acct.followersCount)}
                           </td>
-                          <td className="px-4 py-3 font-mono text-right text-sm font-bold text-[#1A1A1A]">
+                          <td className="px-4 py-3 font-mono text-left text-sm font-bold text-[#1A1A1A]">
                             {formatCount(acct.views)}
                           </td>
-                          <td className="px-4 py-3 font-mono text-right text-sm font-medium text-[#1A1A1A]">
+                          <td className="px-4 py-3 font-mono text-left text-sm font-medium text-[#1A1A1A]">
                             {formatCount(acct.comments)}
                           </td>
-                          <td className="px-4 py-3 font-mono text-right text-sm font-medium text-[#1A1A1A]">
+                          <td className="px-4 py-3 font-mono text-left text-sm font-medium text-[#1A1A1A]">
                             {formatCount(acct.likes)}
                           </td>
-                          <td className="px-4 py-3 font-mono text-right text-sm font-medium text-[#1A1A1A]">
+                          <td className="px-4 py-3 font-mono text-left text-sm font-medium text-[#1A1A1A]">
                             {formatCount(acct.favorites)}
                           </td>
                         </tr>

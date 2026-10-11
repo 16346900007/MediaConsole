@@ -25,6 +25,12 @@ import {
 import VideoThumbnail from '@/components/VideoThumbnail';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Calendar } from '@/components/ui/calendar';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { resolveErrorMessage } from '../social-analytics/helpers';
 import PublishTypeDialog from './publish-type-dialog';
@@ -794,11 +800,9 @@ export default function PublishEditor() {
             <p className="mb-2 text-[10px] font-black uppercase tracking-tight text-[#94A3B8]">
               定时发布时间
             </p>
-            <input
-              type="datetime-local"
+            <ScheduleDateTimePicker
               value={scheduleAt}
-              onChange={(e) => setScheduleAt(e.target.value)}
-              className="w-full rounded-none border border-[#E2E8F0] bg-white px-3 py-2 text-sm outline-none focus:border-[#0033A0]"
+              onChange={setScheduleAt}
             />
           </div>
         )}
@@ -980,5 +984,123 @@ function MediaPreview({
         </div>
       </div>
     </div>
+  );
+}
+
+/** 定时发布时间选择：日历（react-day-picker，跟随项目主色/零圆角）+ 时/分下拉 + 清除/今天 */
+function ScheduleDateTimePicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  const current = value ? new Date(value) : null;
+
+  const toValue = (d: Date): string =>
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+  const update = (partial: { date?: Date; hour?: number; minute?: number }): void => {
+    const base = current ?? new Date();
+    const d = new Date(
+      (partial.date ?? base).getFullYear(),
+      (partial.date ?? base).getMonth(),
+      (partial.date ?? base).getDate(),
+      partial.hour ?? base.getHours(),
+      partial.minute ?? base.getMinutes(),
+      0,
+      0,
+    );
+    onChange(toValue(d));
+  };
+
+  const display = current
+    ? `${current.getFullYear()}/${pad(current.getMonth() + 1)}/${pad(current.getDate())} ${pad(current.getHours())}:${pad(current.getMinutes())}`
+    : 'yyyy/mm/dd --:--';
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="flex w-full items-center justify-between rounded-none border border-[#E2E8F0] bg-white px-3 py-2 text-left text-sm outline-none transition-colors hover:border-[#0033A0] focus:border-[#0033A0]"
+        >
+          <span className={current ? 'text-[#1A1A1A]' : 'text-[#94A3B8]'}>
+            {display}
+          </span>
+          <CalendarClock className="size-4 shrink-0 text-[#94A3B8]" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        sideOffset={4}
+        className="w-[300px] rounded-none border-[#E2E8F0] p-0 shadow-md"
+      >
+        <Calendar
+          mode="single"
+          required={false}
+          selected={current ?? undefined}
+          defaultMonth={current ?? undefined}
+          onSelect={(d) => d && update({ date: d })}
+          className="p-3"
+        />
+        <div className="space-y-3 border-t border-[#E2E8F0] p-3">
+          <div className="flex items-center gap-2">
+            <Select
+              value={current ? String(current.getHours()) : '12'}
+              onValueChange={(v) => update({ hour: Number(v) })}
+            >
+              <SelectTrigger className="h-8 w-full rounded-none border-[#E2E8F0] text-sm">
+                <SelectValue placeholder="时" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[180px] rounded-none">
+                {Array.from({ length: 24 }, (_, i) => (
+                  <SelectItem key={i} value={String(i)} className="text-sm">
+                    {pad(i)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="text-sm font-bold text-[#94A3B8]">:</span>
+            <Select
+              value={current ? String(current.getMinutes()) : '00'}
+              onValueChange={(v) => update({ minute: Number(v) })}
+            >
+              <SelectTrigger className="h-8 w-full rounded-none border-[#E2E8F0] text-sm">
+                <SelectValue placeholder="分" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[180px] rounded-none">
+                {Array.from({ length: 60 }, (_, i) => (
+                  <SelectItem key={i} value={String(i)} className="text-sm">
+                    {pad(i)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onChange('')}
+              className="h-8 rounded-none border-[#E2E8F0] text-[#475569] hover:bg-slate-50"
+            >
+              清除
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                const now = new Date();
+                update({ date: now, hour: now.getHours(), minute: now.getMinutes() });
+              }}
+              className="h-8 rounded-none bg-[#0033A0] hover:bg-[#002680]"
+            >
+              今天
+            </Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
