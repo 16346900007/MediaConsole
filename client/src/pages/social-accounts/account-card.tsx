@@ -178,15 +178,15 @@ const AccountCard: FC<AccountCardProps> = ({
           </span>
         </div>
 
-        {/* 分组徽章：有分组蓝色底，未分组灰色底 */}
-        <div className="mt-1.5">
+        {/* 分组徽章：有分组蓝色底，未分组灰色底（min-w-0+truncate 避免被挤压溢出） */}
+        <div className="mt-1.5 min-w-0">
           {account.groupName ? (
-            <span className="inline-flex items-center gap-1 rounded-sm bg-[#EFF4FF] px-1.5 py-0.5 text-[10px] font-bold text-[#0033A0]">
-              <Folder className="size-3" />
-              {account.groupName}
+            <span className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-sm bg-[#EFF4FF] px-1.5 py-0.5 text-[10px] font-bold text-[#0033A0]">
+              <Folder className="size-3 shrink-0" />
+              <span className="truncate">{account.groupName}</span>
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 rounded-sm bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-[#94A3B8]">
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-sm bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-[#94A3B8]">
               <FolderOpen className="size-3" />
               未分组
             </span>
