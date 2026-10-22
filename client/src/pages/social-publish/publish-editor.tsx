@@ -5,7 +5,6 @@ import { toast } from 'sonner';
 import {
   ArrowLeft,
   Bookmark,
-  CalendarClock,
   ImagePlus,
   Plus,
   Save,
@@ -33,7 +32,6 @@ import {
   getPublishTask,
   listAccountGroups,
   listAccounts,
-  submitPublishTask,
   updatePublishTask,
   uploadPublishFile,
 } from '@client/src/api/social';
@@ -41,25 +39,12 @@ import { PLATFORM_LOGOS } from '@/utils/platform-logos';
 import VideoThumbnail from '@/components/VideoThumbnail';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Calendar } from '@/components/ui/calendar';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { resolveErrorMessage } from '../social-analytics/helpers';
 import PublishTypeDialog from './publish-type-dialog';
@@ -188,8 +173,6 @@ export default function PublishEditor() {
   const [platformFields, setPlatformFields] = useState<Record<string, Record<string, unknown>>>({});
   const [targets, setTargets] = useState<{ platform: string; accountId: string }[]>([]);
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
-  const [scheduleAt, setScheduleAt] = useState<string>('');
-  const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   /** 自动填表弹窗（填表任务保存后打开） */
@@ -233,10 +216,6 @@ export default function PublishEditor() {
       );
       setPlatformFields(task.platformFields ?? {});
       setTargets(task.targets.map((t) => ({ platform: t.platform, accountId: t.accountId })));
-      if (task.status === 'scheduled' && task.scheduledAt) {
-        setScheduleEnabled(true);
-        setScheduleAt(task.scheduledAt.slice(0, 16));
-      }
     } catch (e) {
       toast.error(`加载失败：${resolveErrorMessage(e)}`);
     } finally {
@@ -495,33 +474,6 @@ export default function PublishEditor() {
       toast.success('已保存，正在打开浏览器自动填表…');
     } catch (e) {
       toast.error(`保存失败：${resolveErrorMessage(e)}`);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSchedule = async () => {
-    if (!scheduleAt) {
-      toast.error('请先选择定时发布时间');
-      return;
-    }
-    const v = validatePublish();
-    if (v) {
-      toast.error(v);
-      return;
-    }
-    setSaving(true);
-    try {
-      const input = buildInput();
-      const task = id
-        ? await updatePublishTask(id, input)
-        : await createPublishTask(input);
-      const iso = new Date(scheduleAt).toISOString();
-      await submitPublishTask(task.id, { scheduledAt: iso });
-      toast.success('已设置定时发布');
-      navigate('/publish');
-    } catch (e) {
-      toast.error(`发布失败：${resolveErrorMessage(e)}`);
     } finally {
       setSaving(false);
     }
@@ -1108,44 +1060,6 @@ export default function PublishEditor() {
         )}
       </section>
 
-      {/* 04 发布设置 */}
-      <section className="rounded-none border-t-[3px] border-t-[#0033A0] bg-white shadow-md p-6">
-        <div className="mb-6">
-          <p className="mb-1 text-[12px] font-black uppercase tracking-[0.15em] text-[#0033A0]">
-            04. 发布设置
-          </p>
-          <p className="text-[10px] font-medium text-[#94A3B8]">
-            SCHEDULE · 定时为本地到点触发（需后端服务运行）
-          </p>
-        </div>
-        <label className="flex cursor-pointer items-center gap-2.5">
-          <input
-            type="checkbox"
-            checked={scheduleEnabled}
-            onChange={(e) => setScheduleEnabled(e.target.checked)}
-            className="size-4 accent-[#0033A0]"
-          />
-          <span className="text-sm font-bold text-[#1A1A1A]">定时发布</span>
-          <span className="text-[10px] font-medium text-[#94A3B8]">
-            勾选后设置时间，到点自动发布
-          </span>
-        </label>
-        {scheduleEnabled && (
-          <div className="mt-3 max-w-[360px]">
-            <p className="mb-2 text-[10px] font-black uppercase tracking-tight text-[#94A3B8]">
-              定时发布时间
-            </p>
-            <ScheduleDateTimePicker
-              value={scheduleAt}
-              onChange={setScheduleAt}
-            />
-          </div>
-        )}
-        <p className="mt-4 text-[10px] font-medium text-[#94A3B8]">
-          发布完成后临时文件自动清除，不占用系统存储；失败的平台账号保留文件可重试。
-        </p>
-      </section>
-
       {/* 常用话题弹窗：分组管理 + 单选/整组全选应用 */}
       <TopicLibraryDialog
         open={topicLibOpen}
@@ -1202,24 +1116,12 @@ export default function PublishEditor() {
         </Button>
         <Button
           type="button"
-          className={cn(
-            'rounded-none text-white',
-            scheduleEnabled ? 'bg-[#F59E0B] hover:bg-[#D97706]' : 'bg-[#0033A0] hover:bg-[#00236E]',
-          )}
+          className="rounded-none bg-[#0033A0] text-white hover:bg-[#00236E]"
           disabled={saving || uploading}
-          onClick={() => void (scheduleEnabled ? handleSchedule() : handleFillForms())}
+          onClick={() => void handleFillForms()}
         >
-          {scheduleEnabled ? (
-            <>
-              <CalendarClock className="size-4" />
-              定时发布
-            </>
-          ) : (
-            <>
-              <Wand2 className="size-4" />
-              填表（打开浏览器）
-            </>
-          )}
+          <Wand2 className="size-4" />
+          填表（打开浏览器）
         </Button>
       </div>
 
@@ -1353,124 +1255,6 @@ function MediaPreview({
         </div>
       </div>
     </div>
-  );
-}
-
-/** 定时发布时间选择：日历（react-day-picker，跟随项目主色/零圆角）+ 时/分下拉 + 清除/今天 */
-function ScheduleDateTimePicker({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const pad = (n: number): string => String(n).padStart(2, '0');
-  const current = value ? new Date(value) : null;
-
-  const toValue = (d: Date): string =>
-    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-
-  const update = (partial: { date?: Date; hour?: number; minute?: number }): void => {
-    const base = current ?? new Date();
-    const d = new Date(
-      (partial.date ?? base).getFullYear(),
-      (partial.date ?? base).getMonth(),
-      (partial.date ?? base).getDate(),
-      partial.hour ?? base.getHours(),
-      partial.minute ?? base.getMinutes(),
-      0,
-      0,
-    );
-    onChange(toValue(d));
-  };
-
-  const display = current
-    ? `${current.getFullYear()}/${pad(current.getMonth() + 1)}/${pad(current.getDate())} ${pad(current.getHours())}:${pad(current.getMinutes())}`
-    : '选择时间';
-
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="flex w-full items-center justify-between rounded-none border border-[#E2E8F0] bg-white px-3 py-2 text-left text-sm outline-none transition-colors hover:border-[#0033A0] focus:border-[#0033A0]"
-        >
-          <span className={current ? 'text-[#1A1A1A]' : 'text-[#94A3B8]'}>
-            {display}
-          </span>
-          <CalendarClock className="size-4 shrink-0 text-[#94A3B8]" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        sideOffset={4}
-        className="w-[300px] rounded-none border-[#E2E8F0] p-0 shadow-md"
-      >
-        <Calendar
-          mode="single"
-          required={false}
-          selected={current ?? undefined}
-          defaultMonth={current ?? undefined}
-          onSelect={(d) => d && update({ date: d })}
-          className="p-3"
-        />
-        <div className="space-y-3 border-t border-[#E2E8F0] p-3">
-          <div className="flex items-center gap-2">
-            <Select
-              value={current ? String(current.getHours()) : '12'}
-              onValueChange={(v) => update({ hour: Number(v) })}
-            >
-              <SelectTrigger className="h-8 w-full rounded-none border-[#E2E8F0] text-sm">
-                <SelectValue placeholder="时" />
-              </SelectTrigger>
-              <SelectContent className="max-h-[180px] rounded-none">
-                {Array.from({ length: 24 }, (_, i) => (
-                  <SelectItem key={i} value={String(i)} className="text-sm">
-                    {pad(i)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <span className="text-sm font-bold text-[#94A3B8]">:</span>
-            <Select
-              value={current ? String(current.getMinutes()) : '00'}
-              onValueChange={(v) => update({ minute: Number(v) })}
-            >
-              <SelectTrigger className="h-8 w-full rounded-none border-[#E2E8F0] text-sm">
-                <SelectValue placeholder="分" />
-              </SelectTrigger>
-              <SelectContent className="max-h-[180px] rounded-none">
-                {Array.from({ length: 60 }, (_, i) => (
-                  <SelectItem key={i} value={String(i)} className="text-sm">
-                    {pad(i)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center justify-between">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onChange('')}
-              className="h-8 rounded-none border-[#E2E8F0] text-[#475569] hover:bg-slate-50"
-            >
-              清除
-            </Button>
-            <Button
-              type="button"
-              onClick={() => {
-                const now = new Date();
-                update({ date: now, hour: now.getHours(), minute: now.getMinutes() });
-              }}
-              className="h-8 rounded-none bg-[#0033A0] hover:bg-[#002680]"
-            >
-              今天
-            </Button>
-          </div>
-        </div>
-      </PopoverContent>
-    </Popover>
   );
 }
 

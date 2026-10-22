@@ -115,7 +115,7 @@ export default function SocialPublish() {
             01. 发布单列表
           </p>
           <p className="text-[10px] font-medium text-[#94A3B8]">
-            PUBLISH TASKS · 草稿 / 定时 / 批量多平台发布
+            PUBLISH TASKS
           </p>
         </div>
         <Button
