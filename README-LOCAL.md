@@ -47,9 +47,9 @@ npm install
 npm run dev
 ```
 
-`npm run dev` 在本地会先执行 `miaoda app sync` 同步平台脚本（依赖妙搭账号登录态），然后以本地模式启动：后端 NestJS watch + 前端 Vite dev server。
+`npm run dev` 在本地会先执行 `miaoda app sync` 同步平台脚本（依赖平台账号登录态），然后以本地模式启动：后端 NestJS watch + 前端 Vite dev server。
 
-> 数据库连接由平台 SDK（`@lark-apaas/fullstack-nestjs-core` 注入的 `DRIZZLE_DATABASE`）提供，默认连接妙搭托管 Postgres，无需手写连接串。用户身份来自 `req.userContext`，同样由平台中间件注入。
+> 数据库连接由平台 SDK（`@lark-apaas/fullstack-nestjs-core` 注入的 `DRIZZLE_DATABASE`）提供，默认连接平台托管 Postgres，无需手写连接串。用户身份来自 `req.userContext`，同样由平台中间件注入。
 
 ## 4. 数据库
 
@@ -91,7 +91,7 @@ Drizzle 映射见 `server/database/schema.ts`（`customTimestamptz` / `userProfi
 
 ## 5. 改库结构流程
 
-1. 写 DDL（参考 `db/init.sql` 的表结构），在线上用妙搭的 SQL 执行通道执行
+1. 写 DDL（参考 `db/init.sql` 的表结构），在线上用平台的 SQL 执行通道执行
 2. 重新生成 schema：
    ```bash
    npm run gen:db-schema
@@ -125,7 +125,7 @@ Drizzle 映射见 `server/database/schema.ts`（`customTimestamptz` / `userProfi
 
 | 环境变量 | 说明 | 示例 |
 |---|---|---|
-| `S3_ENDPOINT` | 对象存储 S3 API 地址（不含路径） | `http://<内网IP>:19000` |
+| `S3_ENDPOINT` | 对象存储 S3 API 地址（不含路径） | `http://<内网IP>:19000`（示例） |
 | `S3_ACCESS_KEY` | 访问密钥 AK | - |
 | `S3_SECRET_KEY` | 访问密钥 SK | - |
 | `S3_REGION` | 区域（可选，默认 us-east-1） | `us-east-1` |

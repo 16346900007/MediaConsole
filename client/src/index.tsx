@@ -13,9 +13,22 @@ import { Toaster } from '@client/src/components/ui/sonner';
 
 const CLIENT_BASE_PATH = process.env.CLIENT_BASE_PATH || '/';
 
-// 关闭 client-toolkit AppContainer 注入的「妙搭生成」悬浮角标（官方关闭机制：
-// Watermark 组件读取 localStorage miaoda-creatByMiaodo-has-closed-{appId}，本地 appId 为空）
+// 桌面容器会用宿主 appName 覆盖 <title>（AppContainer 的 useAppInfo 在挂载后
+// 把 document.title 设为宿主应用名），这里用 MutationObserver 兜底强制回品牌名。
+const setAppTitle = () => {
+  document.title = 'MediaConsole';
+};
+setAppTitle();
+const titleEl = document.querySelector('title');
+if (titleEl) {
+  const obs = new MutationObserver(() => {
+    if (document.title !== 'MediaConsole') document.title = 'MediaConsole';
+  });
+  obs.observe(titleEl, { childList: true, subtree: true, characterData: true });
+}
+
 try {
+  // 该 key 为宿主容器协议值（关闭其「由平台创建」引导），不可改名
   window.localStorage.setItem('miaoda-creatByMiaodo-has-closed-', 'true');
 } catch {
   /* 忽略 */

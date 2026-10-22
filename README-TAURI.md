@@ -41,6 +41,19 @@
 ## 常用命令
 
 ```bash
+# ★ 最快捷：双击 `bat\打包exe.bat` 即可，或直接用下面的命令
+pnpm run build:exe        # 完整打包：编译 exe + NSIS 安装包
+pnpm run build:exe:fast   # 快速模式：仅编译 exe（跳过安装包，最快）
+
+# bat\打包exe.bat 支持的参数（可组合）：
+#   bat\打包exe.bat           完整打包（编译 exe + NSIS 安装包）
+#   bat\打包exe.bat fast      仅编译 exe（最快）
+#   bat\打包exe.bat rebuild   先重新构建 server+client 再打包（源码有改动时用）
+#   bat\打包exe.bat clean     先 cargo clean 清掉 Rust 编译缓存再打包（项目移动过目录时用）
+#   bat\打包exe.bat open      完成后自动打开产物所在文件夹
+#   bat\打包exe.bat nopause   结束后不暂停（供脚本/CI 调用）
+# 逻辑入口：scripts\tauri\package-exe.ps1（环境检查 → tauri build → 定位产物）
+
 # 1. 准备打包资源（构建产物 + 裁剪依赖 + 暂存 dist-tauri/ + 下载 node.exe）
 npm run tauri:prepare
 
@@ -48,6 +61,7 @@ npm run tauri:prepare
 npm run tauri:dev
 
 # 3. 构建 Windows 安装包（NSIS，输出到 src-tauri/target/release/bundle/nsis/）
+#    打包完成后产物会自动复制一份到根目录 dist-exe/（不用去翻深层目录）
 npm run tauri:build
 ```
 
@@ -64,6 +78,7 @@ npm run tauri:build
 | `scripts/tauri/init-db.js` | 幂等建表 + 平台角色脚本（随包分发，启动时运行） |
 | `db/init.sql` | 建表 SQL（全部幂等；复合类型用 DO 块创建，PG 不支持 `CREATE TYPE IF NOT EXISTS`） |
 | `dist-tauri/` | 暂存目录（`backend.tar` + `node/node.exe`），由 tauri.conf.json 打进安装包 |
+| `dist-exe/` | 打包完成后的产物收集目录（安装包 + 免安装 exe 自动复制到这里） |
 
 ## 数据库配置（重要）
 
@@ -76,7 +91,7 @@ postgres://<用户名>:<密码>@<内网IP>:5432/social_app
 
 注意：
 
-- 明文密码为 `***`，连接串中的 `%` 必须编码为 `%25`，否则 URL 解析失败。
+- 真实密码见 1Panel「数据库 → PostgreSQL → 连接信息」，此处不落明文；若密码含 `%` 等保留字符，连接串中必须 URL 编码（如 `%` → `%25`），否则解析失败。
 - 用户名/密码来自 1Panel「数据库 → PostgreSQL → 连接信息」（超级用户）；若在面板改密，需同步更新下面的配置文件。
 - 安装 1Panel PostgreSQL 应用时需勾选「端口外部访问」并放开 5432，客户端（另一台机器）才能经 LAN 连接。
 - `init-db.js` 会以连接用户身份幂等创建平台角色（超级用户可 `SET ROLE` 到任意角色）。
@@ -105,6 +120,8 @@ postgres://<用户名>:<密码>@<内网IP>:5432/social_app
 
 ## 常见问题
 
+- **报 `failed to read plugin permissions ... 系统找不到指定的路径`**：项目整体移动过目录后，Rust 增量缓存里的旧路径失效。
+  用 `bat\打包exe.bat clean`（或 `pnpm exec tauri build` 前先 `cargo clean --manifest-path src-tauri\Cargo.toml`）清理后重试即可。
 - **窗口打开但接口报错/白屏**：查看 `%APPDATA%\SocialManager\logs\backend.log`，绝大多数是
   `SUDA_DATABASE_URL` 未配置、1Panel PG 未启动或 5432 未开放外部访问。
 - **报 `role "anon_" does not exist`**：首次启动的 init-db.js 会自动创建平台角色；若跳过（init.sql 缺失/连接失败），删除 `%APPDATA%\SocialManager\runtime` 后重启客户端即可重新初始化。

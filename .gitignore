@@ -5,6 +5,7 @@ node_modules/
 # Tauri（Rust 构建产物：target 可达数百 MB，backend.tar/node.exe 均在其中）
 src-tauri/target/
 dist-tauri/
+dist-exe/
 build-tools/
 
 # Production builds
@@ -75,3 +76,8 @@ pnpm-lock.yaml
 
 # 本地调试脚本（含数据库连接串/cookie jar，禁止入库）
 .dev/
+
+# 本地调试脚本（日志提取/分析，禁止入库）
+parse-fill-log.py
+tail-fill-log.py
+tail-kw.py

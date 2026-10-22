@@ -9,9 +9,9 @@ import {
   ImagePlus,
   Plus,
   Save,
-  Send,
   Trash2,
   Upload,
+  Wand2,
   X,
 } from 'lucide-react';
 import type {
@@ -29,6 +29,7 @@ import {
 } from '@shared/platforms';
 import {
   createPublishTask,
+  fillPublishTaskForms,
   getPublishTask,
   listAccountGroups,
   listAccounts,
@@ -67,6 +68,7 @@ import LocationInput from './location-input';
 import BiliPartitionPicker, {
   type BiliPartitionValue,
 } from './bili-partition-picker';
+import { FillFormDialog } from './fill-form-dialog';
 
 /** 平台特有字段定义（编辑页按选中平台展示，存 platformFields） */
 interface ExtraField {
@@ -190,6 +192,8 @@ export default function PublishEditor() {
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  /** 自动填表弹窗（填表任务保存后打开） */
+  const [fillTask, setFillTask] = useState<PublishTask | null>(null);
   /** 弹窗预览：类型 + 当前索引 */
   const [preview, setPreview] = useState<{ kind: 'video' | 'image' | 'cover'; index: number } | null>(null);
   /** 选账号弹窗 */
@@ -299,13 +303,12 @@ export default function PublishEditor() {
   const handleFiles = async (files: File[] | null, kind: 'media' | 'cover') => {
     if (!files?.length) return;
     let list = Array.from(files);
-    // 视频最多 5 个：超出部分忽略并提示
+    // 视频只支持 1 个：已有时新选择直接替换（不追加）
     if (kind === 'media' && publishType === 'video') {
-      const room = Math.max(0, 5 - mediaItems.length);
-      if (list.length > room) {
-        toast.warning(`视频最多上传 5 个，已忽略多余文件`);
-        list = list.slice(0, room);
+      if (mediaItems.length >= 1) {
+        toast.warning('视频只支持上传 1 个，已替换原视频');
       }
+      list = list.slice(0, 1);
       if (list.length === 0) return;
     }
     // 类型校验（drop 不受 input accept 约束，需手动校验）
@@ -348,7 +351,9 @@ export default function PublishEditor() {
       progress: 0,
       status: 'uploading',
     }));
-    setMediaItems((prev: MediaUploadItem[]) => [...prev, ...added]);
+    setMediaItems((prev: MediaUploadItem[]) =>
+      publishType === 'video' && prev.length > 0 ? added : [...prev, ...added],
+    );
     const patchItem = (id: string, patch: Partial<MediaUploadItem>): void => {
       setMediaItems((prev: MediaUploadItem[]) =>
         prev.map((it: MediaUploadItem): MediaUploadItem => (it.id === id ? { ...it, ...patch } : it)),
@@ -372,7 +377,7 @@ export default function PublishEditor() {
   /* 三个上传框的 react-dropzone 实例（内部处理 dragenter/dragleave 状态，isDragActive 即悬停提示） */
   const videoDrop = useDropzone({
     accept: { 'video/*': ['.mp4', '.webm', '.mov'] },
-    multiple: true,
+    multiple: false,
     onDrop: (files) => void handleFiles(files, 'media'),
   });
   const imageDrop = useDropzone({
@@ -474,7 +479,7 @@ export default function PublishEditor() {
     return null;
   };
 
-  const handlePublishNow = async () => {
+  const handleFillForms = async () => {
     const v = validatePublish();
     if (v) {
       toast.error(v);
@@ -484,13 +489,12 @@ export default function PublishEditor() {
     try {
       const input = buildInput();
       const task = id
-        ? await updatePublishTask(id, input)
-        : await createPublishTask(input);
-      await submitPublishTask(task.id, { asDraft: false });
-      toast.success('已提交发布');
-      navigate('/publish');
+        ? await updatePublishTask(id, { ...input, asDraft: true })
+        : await createPublishTask({ ...input, asDraft: true });
+      setFillTask(task);
+      toast.success('已保存，正在打开浏览器自动填表…');
     } catch (e) {
-      toast.error(`发布失败：${resolveErrorMessage(e)}`);
+      toast.error(`保存失败：${resolveErrorMessage(e)}`);
     } finally {
       setSaving(false);
     }
@@ -525,9 +529,38 @@ export default function PublishEditor() {
 
   if (loading) {
     return (
-      <div className="px-8 pt-8 pb-20 space-y-8">
-        <Skeleton className="h-[72px] w-full rounded-none" />
-        <Skeleton className="h-[400px] w-full rounded-none" />
+      <div className="flex min-h-[calc(100vh-56px)] flex-col gap-8 px-8 pt-8">
+        <div className="flex items-center gap-1.5">
+          <Skeleton className="h-4 w-20 rounded-none" />
+        </div>
+        <section className="rounded-none border-t-[3px] border-t-[#0033A0] bg-white shadow-md p-6">
+          <div className="mb-6 space-y-2">
+            <Skeleton className="h-4 w-40 rounded-none" />
+            <Skeleton className="h-3 w-64 rounded-none" />
+          </div>
+          <div className="space-y-4">
+            <Skeleton className="h-[180px] w-full rounded-none" />
+            <Skeleton className="h-10 w-full rounded-none" />
+            <Skeleton className="h-10 w-2/3 rounded-none" />
+            <Skeleton className="h-10 w-full rounded-none" />
+            <Skeleton className="h-24 w-full rounded-none" />
+          </div>
+        </section>
+        <section className="rounded-none border-t-[3px] border-t-[#0033A0] bg-white shadow-md p-6">
+          <div className="mb-6 space-y-2">
+            <Skeleton className="h-4 w-32 rounded-none" />
+            <Skeleton className="h-3 w-56 rounded-none" />
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <Skeleton key={i} className="h-16 w-[130px] rounded-none" />
+            ))}
+          </div>
+        </section>
+        <div className="flex items-center justify-end gap-3">
+          <Skeleton className="h-9 w-24 rounded-none" />
+          <Skeleton className="h-9 w-32 rounded-none" />
+        </div>
       </div>
     );
   }
@@ -661,7 +694,7 @@ export default function PublishEditor() {
                   </div>
                 ))}
                 <p className="mt-1 text-[10px] font-medium text-[#94A3B8]">
-                  {mediaItems.length}/5 · 可继续点击或拖拽添加（MP4/WebM/MOV），点击视频可弹窗预览
+                  {mediaItems.length}/1 · 只支持 1 个视频，重新选择将替换原视频（MP4/WebM/MOV），点击视频可弹窗预览
                 </p>
               </div>
             ) : (
@@ -687,7 +720,7 @@ export default function PublishEditor() {
                         : '上传中…'
                     : videoDrop.isDragActive
                       ? '松开即上传'
-                      : '点击或拖拽视频文件到此处（最多 5 个，MP4/WebM/MOV）'}
+                      : '点击或拖拽视频文件到此处（只支持 1 个，重新选择将替换，MP4/WebM/MOV）'}
                 </span>
               </>
             )}
@@ -1174,7 +1207,7 @@ export default function PublishEditor() {
             scheduleEnabled ? 'bg-[#F59E0B] hover:bg-[#D97706]' : 'bg-[#0033A0] hover:bg-[#00236E]',
           )}
           disabled={saving || uploading}
-          onClick={() => void (scheduleEnabled ? handleSchedule() : handlePublishNow())}
+          onClick={() => void (scheduleEnabled ? handleSchedule() : handleFillForms())}
         >
           {scheduleEnabled ? (
             <>
@@ -1183,12 +1216,21 @@ export default function PublishEditor() {
             </>
           ) : (
             <>
-              <Send className="size-4" />
-              立即发布
+              <Wand2 className="size-4" />
+              填表（打开浏览器）
             </>
           )}
         </Button>
       </div>
+
+      {/* 自动填表弹窗：保存后打开即触发全部目标 */}
+      {fillTask && (
+        <FillFormDialog
+          task={fillTask}
+          onClose={() => setFillTask(null)}
+          autoRun
+        />
+      )}
     </div>
   );
 }
@@ -1470,6 +1512,9 @@ function AccountPickerDialog({
     return [...set];
   }, [accounts]);
 
+  /* id → 账号（同平台单选时用） */
+  const acctMap = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
+
   const filtered = useMemo(() => {
     let list = accounts;
     if (platformFilter) list = list.filter((a) => a.platform === platformFilter);
@@ -1482,21 +1527,6 @@ function AccountPickerDialog({
     }
     return list;
   }, [accounts, platformFilter, groupFilter, keyword]);
-
-  /* 当前过滤结果的全选状态 */
-  const allFilteredIds = useMemo(() => filtered.map((a) => a.id), [filtered]);
-  const allChecked =
-    allFilteredIds.length > 0 && allFilteredIds.every((id) => draft.includes(id));
-  const toggleSelectAll = (): void => {
-    setDraft((prev) => {
-      if (allChecked) {
-        return prev.filter((id) => !allFilteredIds.includes(id));
-      }
-      const set = new Set(prev);
-      for (const id of allFilteredIds) set.add(id);
-      return [...set];
-    });
-  };
 
   const byPlatform = useMemo(() => {
     const map = new Map<string, SocialAccount[]>();
@@ -1516,14 +1546,19 @@ function AccountPickerDialog({
         : 'border-[#E2E8F0] bg-white text-[#475569] hover:bg-slate-50',
     );
 
+  /* 勾选/取消；同平台已选其他账号时，新勾选自动替换（每平台最多一个） */
   const toggle = (id: string) => {
-    setDraft((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
+    setDraft((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      const acct = acctMap.get(id);
+      const others = acct
+        ? prev.filter((x) => acctMap.get(x)?.platform !== acct.platform)
+        : prev;
+      return [...others, id];
+    });
   };
 
   const handleConfirm = (): void => {
-    const acctMap = new Map(accounts.map((a) => [a.id, a]));
     onConfirm(
       draft.map((id) => ({
         platform: acctMap.get(id)?.platform ?? '',
@@ -1626,7 +1661,7 @@ function AccountPickerDialog({
               ))}
             </div>
 
-            {/* 搜索 + 全选 */}
+            {/* 搜索 */}
             <div className="flex items-center gap-3 border-b border-[#E2E8F0] px-6 py-2.5">
               <input
                 value={keyword}
@@ -1634,17 +1669,6 @@ function AccountPickerDialog({
                 placeholder="搜索账号名称"
                 className="h-8 w-full max-w-[280px] rounded-none border border-[#E2E8F0] bg-white px-3 text-sm outline-none placeholder:text-[#94A3B8] focus:border-[#0033A0]"
               />
-              {filtered.length > 0 && (
-                <label className="ml-auto flex cursor-pointer select-none items-center gap-2 text-[12px] font-medium text-[#475569]">
-                  <input
-                    type="checkbox"
-                    checked={allChecked}
-                    onChange={toggleSelectAll}
-                    className="size-4 accent-[#0033A0]"
-                  />
-                  全选当前 {filtered.length} 个
-                </label>
-              )}
             </div>
 
             {/* 账号勾选列表 */}
@@ -1667,6 +1691,12 @@ function AccountPickerDialog({
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                       {list.map((acct) => {
                         const checked = draft.includes(acct.id);
+                        // 同平台已选其他账号（单选：再勾选即替换）
+                        const platformTaken =
+                          !checked &&
+                          list.some(
+                            (a) => a.id !== acct.id && draft.includes(a.id),
+                          );
                         return (
                           <label
                             key={acct.id}
@@ -1675,6 +1705,7 @@ function AccountPickerDialog({
                               checked
                                 ? 'border-[#0033A0] bg-[#EFF4FF]'
                                 : 'border-[#E2E8F0] hover:bg-slate-50',
+                              platformTaken && 'opacity-60',
                             )}
                           >
                             <input
@@ -1701,6 +1732,11 @@ function AccountPickerDialog({
                             {acct.groupName && (
                               <span className="shrink-0 rounded-sm bg-[#EFF4FF] px-1.5 py-0.5 text-[10px] font-bold text-[#0033A0]">
                                 {acct.groupName}
+                              </span>
+                            )}
+                            {platformTaken && (
+                              <span className="shrink-0 rounded-sm bg-[#FEF2F2] px-1.5 py-0.5 text-[10px] font-bold text-[#EF4444]">
+                                同平台已选
                               </span>
                             )}
                           </label>

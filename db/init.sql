@@ -2,8 +2,8 @@
 -- 自媒体多平台管理工具 · 数据库初始化脚本（本地 Postgres）
 -- 生成时间：2026-10-09
 -- 说明：
---   1. 本脚本在本地 PostgreSQL 中重建与妙搭线上库同构的 7 张业务表。
---   2. 妙搭平台使用复合类型 user_profile 存储人员信息；本地用
+--   1. 本脚本在本地 PostgreSQL 中重建与线上库同构的 7 张业务表。
+--   2. 平台使用复合类型 user_profile 存储人员信息；本地用
 --      CREATE TYPE user_profile AS (user_id text) 等价模拟，
 --      (字段).user_id 解引用与 ROW('id')::user_profile 写法均可用。
 --   3. 幂等：表与索引均带 IF NOT EXISTS，可重复执行；复合类型用

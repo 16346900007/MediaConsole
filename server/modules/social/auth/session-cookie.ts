@@ -20,6 +20,8 @@ export const SESSION_COOKIE_KEYS: Partial<Record<SocialPlatform, string[]>> = {
   bilibili: ['SESSDATA'],
   weibo: ['SUB', 'SUBP'],
   kuaishou: ['kuaishou.web.cp.api_st', 'userId'],
+  // 实测：快手创作者平台登录态由 api_st/userId 维系（发布页可用），
+  // kwssectoken/kwscode 过期不影响已登录会话，不作为判据。
   youtube: ['SID', 'SSID'],
 };
 

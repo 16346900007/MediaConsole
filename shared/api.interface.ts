@@ -402,11 +402,12 @@ export interface DataSyncResponse {
 
 export type PublishType = 'video' | 'image' | 'article';
 export type PublishTaskStatus =
-  | 'draft' // 草稿（本地保存，未排期未发布）
+  | 'draft' // 草稿（本地保存，未发布）
   | 'scheduled' // 已排期（本地定时，等待到点触发）
   | 'publishing' // 发布中
-  | 'published' // 全部目标发布成功
-  | 'partial_failed' // 部分目标失败
+  | 'published' // 全部目标已发布
+  | 'partial' // 部分目标已发布（人工填表流程）
+  | 'partial_failed' // 部分目标失败（自动发布历史兼容）
   | 'failed'; // 全部失败
 export type PublishTargetStatus = 'pending' | 'publishing' | 'success' | 'failed';
 
@@ -437,6 +438,21 @@ export interface PublishTask {
   targets: PublishTarget[];
   createdAt: string;
   updatedAt: string;
+}
+
+/** 自动填表结果（每个目标平台一条） */
+export interface FillFormTargetResult {
+  platform: SocialPlatform;
+  platformName: string;
+  accountName: string;
+  status: 'filled' | 'skipped' | 'failed';
+  message: string;
+  url: string;
+}
+
+export interface FillFormsResult {
+  baseUrl: string;
+  opened: FillFormTargetResult[];
 }
 
 /** 发布目标（一个平台的一个账号） */

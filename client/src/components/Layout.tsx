@@ -6,7 +6,6 @@ import {
   Eraser,
   FileText,
   FolderOpen,
-  Images,
   LayoutDashboard,
   MoreVertical,
   Send,
@@ -30,7 +29,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/', label: '工作台', icon: LayoutDashboard, end: true },
   { to: '/accounts', label: '账号', icon: Users },
   { to: '/publish', label: '发布', icon: Send },
-  { to: '/materials', label: '素材库', icon: Images },
+  // 素材库菜单已按需求隐藏（页面路由保留，可后续恢复）
 ];
 
 const matchNavItem = (pathname: string): NavItem =>
@@ -112,17 +111,21 @@ const Layout = () => {
         >
           {expanded ? (
             <div className="flex min-w-0 items-center gap-2">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center bg-[#0033A0] text-xs font-black text-white">
-                S
-              </span>
+              <img
+                src="/favicon.ico"
+                alt="MediaConsole"
+                className="h-7 w-7 shrink-0 rounded-none object-contain"
+              />
               <span className="min-w-0 truncate text-sm font-semibold text-[#1A1A1A]">
-                Solo Media Hub
+                MediaConsole
               </span>
             </div>
           ) : (
-            <span className="flex h-7 w-7 items-center justify-center bg-[#0033A0] text-xs font-black text-white">
-              S
-            </span>
+            <img
+              src="/favicon.ico"
+              alt="MediaConsole"
+              className="h-7 w-7 rounded-none object-contain"
+            />
           )}
         </div>
         <nav className="mt-4 flex flex-1 flex-col gap-1">

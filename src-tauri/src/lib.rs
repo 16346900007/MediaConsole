@@ -203,6 +203,12 @@ fn file_fnv1a(path: &Path) -> u64 {
     hash
 }
 
+/// 去掉 Windows verbatim 前缀（\\?\）：带前缀路径启动 node 会触发
+/// libuv process_title 断言崩溃（0xc0000409），必须用普通路径启动
+fn normalize_win_path(p: &Path) -> PathBuf {
+    PathBuf::from(p.to_string_lossy().trim_start_matches(r"\\?\").to_string())
+}
+
 /// 启动内置后端（先跑一次幂等 DB 初始化，再启动 main.js）
 fn start_backend(
     resource_base: &Path,
@@ -219,6 +225,10 @@ fn start_backend(
     } else {
         PathBuf::from("node") // dev：使用 PATH 中的 node
     };
+
+    // node/入口/工作目录统一用普通路径（规避 verbatim 前缀导致的启动崩溃）
+    let node = normalize_win_path(&node);
+    let dist_dir = normalize_win_path(dist_dir);
 
     let server_main = dist_dir.join("server").join("main.js");
     if !server_main.exists() {
@@ -248,8 +258,14 @@ fn start_backend(
         let mut init_cmd = Command::new(&node);
         init_cmd
             .arg(&init_script)
-            .current_dir(dist_dir)
+            .current_dir(&dist_dir)
             .env("NODE_ENV", "production");
+        // GUI 父进程 spawn 控制台程序会弹出黑色窗口，隐藏之
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            init_cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        }
         if let (Ok(out), Ok(err)) = (init_out, init_err) {
             init_cmd.stdout(Stdio::from(out)).stderr(Stdio::from(err));
         }
@@ -289,9 +305,15 @@ fn start_backend(
     );
     let stdout_log = log_file.try_clone()?;
     let stderr_log = log_file.try_clone()?;
-    let mut cmd = Command::new(&node);
-    cmd.arg(&server_main)
-        .current_dir(dist_dir)
+    // 经 powershell 包装启动 node：GUI 父进程直接 spawn node.exe 会触发
+    // libuv process_title 断言崩溃（0xc0000409），powershell 启动已验证稳定
+    let mut cmd = Command::new("powershell");
+    cmd.arg("-NoProfile")
+        .arg("-WindowStyle")
+        .arg("Hidden")
+        .arg("-Command")
+        .arg(format!("& '{}' '{}'", node.display(), server_main.display()))
+        .current_dir(&dist_dir)
         .env("NODE_ENV", "production")
         .env("SERVER_HOST", "127.0.0.1")
         .env("SERVER_PORT", port.to_string())
@@ -301,6 +323,12 @@ fn start_backend(
         .env("LOG_DIR", appdata_log_dir().unwrap_or_default())
         .stdout(Stdio::from(stdout_log))
         .stderr(Stdio::from(stderr_log));
+    // 双保险隐藏窗口：-WindowStyle Hidden + CREATE_NO_WINDOW（GUI 父进程 spawn 控制台程序默认会弹黑窗）
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    }
     for (k, v) in &override_env {
         cmd.env(k, v);
     }

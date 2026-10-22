@@ -120,6 +120,8 @@ export class FilesController {
     }
     // 视频播放等场景允许缓存，避免每次重复拉取
     res.setHeader('Cache-Control', 'private, max-age=3600');
+    // 自动填表：注入函数在平台发布页（跨域）fetch 媒体文件，需允许跨域读取
+    res.setHeader('Access-Control-Allow-Origin', '*');
 
     const range = req.headers.range;
     if (range) {

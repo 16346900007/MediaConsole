@@ -31,6 +31,7 @@ import type {
   TopicGroup,
   TopicLibrary,
   GeoPlace,
+  FillFormsResult,
 } from '@shared/api.interface';
 
 export async function listAccounts(params?: {
@@ -591,8 +592,35 @@ export async function submitPublishTask(
   return response.data;
 }
 
-/** 统一文件上传（发布临时桶 publish-tmp；素材库后续用 materials） */
-export async function uploadPublishFile(
+/** 自动填表（不自动发布）：打开平台发布页并填好表单，最后一步人工点击发布 */
+export async function fillPublishTaskForms(
+  id: string,
+  body: { platforms?: string[] },
+): Promise<FillFormsResult> {
+  const response = await axiosForBackend({
+    url: `/api/social/publish/tasks/${id}/fill-forms`,
+    method: 'POST',
+    data: body,
+  });
+  return response.data;
+}
+
+/** 手动标记/撤销某平台发布状态（success=已发布 / pending=撤销回未发布） */
+export async function markPublishTarget(
+  id: string,
+  platform: string,
+  accountId: string,
+  status: 'success' | 'pending',
+): Promise<PublishTask> {
+  const response = await axiosForBackend({
+    url: `/api/social/publish/tasks/${id}/targets/mark`,
+    method: 'POST',
+    data: { platform, accountId, status },
+  });
+  return response.data;
+}
+
+/** 统一文件上传（发布临时桶 publish-tmp；素材库后续用 materials） */export async function uploadPublishFile(
   file: File,
   bucket: 'publish-tmp' | 'materials' = 'publish-tmp',
   onProgress?: (percent: number) => void,

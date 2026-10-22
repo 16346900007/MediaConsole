@@ -4,13 +4,18 @@ const path = require('path');
 const Minio = require('minio');
 
 const uploadsRoot = process.env.APPDATA + '\\SocialManager\\uploads';
-const client = new Minio.Client({
-  endPoint: '<内网IP>',
-  port: 19000,
-  useSSL: false,
-  accessKey: '<accessKey>',
-  secretKey: '<secretKey>',
-});
+// MinIO 连接信息从环境变量读取，勿在代码里落明文（曾提交过密钥，已轮换）
+const minioCfg = {
+  endPoint: process.env.MINIO_ENDPOINT || '<内网IP>',
+  port: Number(process.env.MINIO_PORT || 19000),
+  useSSL: process.env.MINIO_USE_SSL === 'true',
+  accessKey: process.env.MINIO_ACCESS_KEY || '<accessKey>',
+  secretKey: process.env.MINIO_SECRET_KEY || '<secretKey>',
+};
+if (!process.env.MINIO_ACCESS_KEY || !process.env.MINIO_SECRET_KEY) {
+  console.warn('[migrate] 未设置 MINIO_ACCESS_KEY / MINIO_SECRET_KEY，将使用占位值（仅提示，不会成功连接）。');
+}
+const client = new Minio.Client(minioCfg);
 
 const BUCKET_MAP = {
   'publish-tmp': 'media-console-publish-tmp',

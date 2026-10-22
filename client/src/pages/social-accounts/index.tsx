@@ -357,10 +357,10 @@ const SocialAccounts: FC = () => {
   /** 工作台同款筛选样式：实心蓝底、可再次点击取消（toggle） */
   const pillClass = (active: boolean): string =>
     cn(
-      'flex items-center gap-1.5 rounded-none border px-3 py-1.5 text-sm font-medium transition-colors',
+      'flex items-center gap-1.5 rounded-none border px-3 py-1.5 text-sm transition-colors',
       active
-        ? 'border-transparent bg-[#0033A0] text-white'
-        : 'border-[#E2E8F0] bg-white text-[#475569] hover:bg-slate-50',
+        ? 'border-[#0033A0] bg-[#EFF4FF] font-semibold text-[#0033A0]'
+        : 'border-[#E2E8F0] bg-white font-medium text-[#475569] hover:bg-slate-50',
     );
 
   return (

@@ -57,7 +57,14 @@ export class PublishService implements OnModuleInit, OnModuleDestroy {
 
   async listTasks(params?: { status?: string; publishType?: string }): Promise<PublishTask[]> {
     const conditions = [];
-    if (params?.status) conditions.push(eq(socialPublishTasks.status, params.status));
+    // 支持逗号分隔多状态（如 draft,scheduled,publishing）
+    if (params?.status) {
+      const sts = params.status
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (sts.length) conditions.push(inArray(socialPublishTasks.status, sts));
+    }
     if (params?.publishType) conditions.push(eq(socialPublishTasks.publishType, params.publishType));
     const rows = await this.db
       .select()
@@ -140,7 +147,7 @@ export class PublishService implements OnModuleInit, OnModuleDestroy {
   async deleteTask(id: string): Promise<void> {
     if (!UUID_PATTERN.test(id)) throw new NotFoundException('发布单不存在');
     const task = await this.getTask(id);
-    if (task.status === 'publishing') throw new Error('发布中的发布单不可删除');
+    // 不做状态限制：publishing 为历史残留时也允许清理，删除交由用户确认
     await this.db
       .delete(socialPublishTasks)
       .where(eq(socialPublishTasks.id, id));
@@ -364,6 +371,98 @@ export class PublishService implements OnModuleInit, OnModuleDestroy {
       .where(eq(socialPublishTargets.id, targetId));
   }
 
+  /**
+   * 手动发布闭环：填表后用户人工在平台点击发布并关闭浏览器窗口，
+   * 系统据此将该平台目标标记为已发布，并重算发布单状态。
+   */
+  /** 填表实时回写：单个平台填表开始/结束时的失败信息（null 清除）；前端轮询据此尽早显示失败 */
+  async setTargetFillError(targetId: string, error: string | null): Promise<void> {
+    if (!targetId) return;
+    await this.db
+      .update(socialPublishTargets)
+      .set({ error })
+      .where(eq(socialPublishTargets.id, targetId));
+  }
+
+  /** 按账号 ID 查登录态 uid（任务 target 未存 platformUid 时用于定位 auth 文件） */
+  async getAccountPlatformUid(accountId: string): Promise<string | null> {
+    const rows = await this.db
+      .select({ platformUid: socialAccounts.platformUid })
+      .from(socialAccounts)
+      .where(eq(socialAccounts.id, accountId))
+      .limit(1);
+    return rows[0]?.platformUid ?? null;
+  }
+
+  async markTargetPublished(
+    taskId: string,
+    platform: string,
+    accountId: string,
+  ): Promise<PublishTask> {
+    return this.markTargetStatus(taskId, platform, accountId, 'success');
+  }
+
+  /** 手动标记/撤销某平台发布状态（success=已发布 / pending=撤销回未发布），并重算发布单状态 */
+  async markTargetStatus(
+    taskId: string,
+    platform: string,
+    accountId: string,
+    status: 'success' | 'pending',
+  ): Promise<PublishTask> {
+    if (!UUID_PATTERN.test(taskId)) throw new NotFoundException('发布单不存在');
+    const rows = await this.db
+      .select()
+      .from(socialPublishTargets)
+      .where(
+        and(
+          eq(socialPublishTargets.taskId, taskId),
+          eq(socialPublishTargets.platform, platform),
+          eq(socialPublishTargets.accountId, accountId),
+        ),
+      );
+    if (!rows.length) throw new NotFoundException('发布目标不存在');
+    const t = rows[0];
+    if (status === 'success' && t.status !== 'success') {
+      await this.db
+        .update(socialPublishTargets)
+        .set({ status: 'success', error: null, progress: 100 })
+        .where(eq(socialPublishTargets.id, t.id));
+    }
+    if (status === 'pending' && t.status === 'success') {
+      await this.db
+        .update(socialPublishTargets)
+        .set({ status: 'pending', error: null, progress: 0 })
+        .where(eq(socialPublishTargets.id, t.id));
+    }
+    await this.recalcTaskStatus(taskId);
+    this.logger.log(
+      `发布状态标记 [${platform}] ${accountId} → ${status}，发布单 ${taskId} 状态重算`,
+    );
+    return this.getTask(taskId);
+  }
+
+  /** 依据平台发布情况重算发布单状态：全部已发布→published；部分→partial；均未→draft */
+  private async recalcTaskStatus(taskId: string): Promise<void> {
+    const targets = await this.db
+      .select()
+      .from(socialPublishTargets)
+      .where(eq(socialPublishTargets.taskId, taskId));
+    if (!targets.length) return;
+    const total = targets.length;
+    const success = targets.filter((x) => x.status === 'success').length;
+    let status: PublishTaskStatus = 'draft';
+    if (success === total) status = 'published';
+    else if (success > 0) status = 'partial';
+    await this.db
+      .update(socialPublishTasks)
+      .set({
+        status,
+        publishedAt: status === 'published' ? new Date() : undefined,
+        error: null,
+      })
+      .where(eq(socialPublishTasks.id, taskId));
+  }
+
   /* ------------------------------------------------------------------ */
   /* 内部工具                                                             */
   /* ------------------------------------------------------------------ */
@@ -400,7 +499,11 @@ export class PublishService implements OnModuleInit, OnModuleDestroy {
     if (!rows.length) return [];
     const ids = rows.map((r) => r.id);
     const [targets, accounts] = await Promise.all([
-      this.db.select().from(socialPublishTargets).where(inArray(socialPublishTargets.taskId, ids)),
+      this.db
+        .select()
+        .from(socialPublishTargets)
+        .where(inArray(socialPublishTargets.taskId, ids))
+        .orderBy(socialPublishTargets.id),
       this.db.select().from(socialAccounts),
     ]);
     const acctName = new Map(accounts.map((a) => [a.id, a.accountName]));

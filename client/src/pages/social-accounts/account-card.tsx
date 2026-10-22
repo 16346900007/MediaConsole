@@ -41,7 +41,7 @@ function openCreatorCenter(account: SocialAccount, url: string): void {
     .catch((err: unknown) => console.error('[open] failed', err));
 }
 
-/** 右上角卷角状态标签（校验中显示 loading） */
+/** 账号状态小徽章（inline，置于账号名旁） */
 function StatusBadge({
   online,
   verifying,
@@ -50,29 +50,26 @@ function StatusBadge({
   verifying: boolean;
 }) {
   let label = '未校验';
-  let color = '#94A3B8';
+  let cls = 'bg-[#F8FAFC] text-[#94A3B8]';
   let icon: ReactNode = null;
   if (verifying) {
     label = '校验中';
-    color = '#0033A0';
-    icon = <Loader2 className="size-3 animate-spin" />;
+    cls = 'bg-[#EFF4FF] text-[#0033A0]';
+    icon = <Loader2 className="size-2.5 animate-spin" />;
   } else if (online === true) {
     label = '在线';
-    color = '#14B8A6';
+    cls = 'bg-[#ECFDF5] text-[#10B981]';
   } else if (online === false) {
     label = '离线';
-    color = '#EF4444';
+    cls = 'bg-[#FEF2F2] text-[#EF4444]';
   }
   return (
-    <div className="ribbon-badge">
-      <span
-        className="ribbon-label"
-        style={{ ['--ribbon-color' as string]: color }}
-      >
-        {icon}
-        {label}
-      </span>
-    </div>
+    <span
+      className={`inline-flex shrink-0 items-center gap-0.5 rounded-sm px-1.5 py-0.5 text-[10px] font-bold ${cls}`}
+    >
+      {icon}
+      {label}
+    </span>
   );
 }
 
@@ -124,9 +121,6 @@ const AccountCard: FC<AccountCardProps> = ({
       }`}
       onClick={batchMode ? onToggleSelect : undefined}
     >
-      {/* 右上角卷角状态标签 */}
-      <StatusBadge online={account.online ?? null} verifying={verifying} />
-
       {/* 批量模式勾选框 */}
       {batchMode && (
         <span
@@ -156,15 +150,18 @@ const AccountCard: FC<AccountCardProps> = ({
           <Image
             src={PLATFORM_LOGOS[platform.value]}
             alt={platform.name}
-            className="size-8 object-contain"
+            className="size-10 object-contain"
           />
         )}
       </div>
 
       <div className="min-w-0 flex-1">
-        <h3 className="truncate text-sm font-bold tracking-tight text-[#1A1A1A]">
-          {account.accountName}
-        </h3>
+        <div className="flex items-center gap-2">
+          <h3 className="min-w-0 flex-1 truncate text-base font-bold tracking-tight text-[#1A1A1A]">
+            {account.accountName}
+          </h3>
+          <StatusBadge online={account.online ?? null} verifying={verifying} />
+        </div>
 
         {/* 平台标志：logo + 平台名 + 分组 */}
         <div className="mt-1.5 flex items-center gap-1.5">
@@ -194,7 +191,7 @@ const AccountCard: FC<AccountCardProps> = ({
         </div>
 
         {account.note && (
-          <p className="mt-2 line-clamp-2 text-[12px] font-medium leading-5 text-slate-600">
+          <p className="mt-2 line-clamp-2 text-[11px] font-medium leading-4 text-[#94A3B8]">
             {account.note}
           </p>
         )}

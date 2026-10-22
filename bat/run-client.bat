@@ -1,8 +1,8 @@
 @echo off
 rem quick run: start release client
-set "APP=%~dp0src-tauri\target\release\social-manager.exe"
+set "APP=%~dp0..\src-tauri\target\release\social-manager.exe"
 if not exist "%APP%" (
-    echo [ERROR] release client not found, run build-installer.bat first.
+    echo [ERROR] release client not found, run bat\build-installer.bat first.
     pause
     exit /b 1
 )

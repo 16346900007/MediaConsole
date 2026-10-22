@@ -17,6 +17,8 @@
     "tauri:prepare": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tauri/prepare.ps1",
     "tauri:dev": "pnpm run tauri:prepare && pnpm exec tauri dev",
     "tauri:build": "pnpm run tauri:prepare && pnpm exec tauri build",
+    "build:exe": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tauri/package-exe.ps1 -NoPause",
+    "build:exe:fast": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tauri/package-exe.ps1 -Fast -NoPause",
     "build": "./scripts/build.sh",
     "build:prod": "pnpm run build:server && pnpm run build:client",
     "build:server": "NODE_ENV=production nest build",

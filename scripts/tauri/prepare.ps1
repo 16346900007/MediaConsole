@@ -1,6 +1,7 @@
-param(
+﻿param(
   [switch]$SkipBuild,
-  [switch]$SkipPrune
+  [switch]$SkipPrune,
+  [switch]$ForceStage  # 强制重新暂存并打包 backend.tar（默认在 dist 内容未变化时复用缓存）
 )
 # SocialManager Tauri packaging prepare script.
 # 1) Build server+client if artifacts missing  2) prune runtime deps  3) normalize dist layout
@@ -57,7 +58,44 @@ if (Test-Path "$root\client\public") { Copy-Item "$root\client\public\*" -Destin
 
 # ---------- 4. stage dist-tauri (filtered, no .map/.d.ts which are useless at runtime) ----------
 $stage = "$root\dist-tauri"
-if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
+
+# 缓存跳过: dist 内容未变化时复用已有 backend.tar, 省去 robocopy 10万+文件与 tar 打包（约 5-8 分钟）
+if (-not $ForceStage -and (Test-Path "$stage\backend.tar") -and (Test-Path "$stage\node\node.exe")) {
+  $tarTime = (Get-Item "$stage\backend.tar").LastWriteTime
+  $stale = $false
+  # 纯 .NET 流式扫描 dist 找最新文件时间（Get-ChildItem 递归 10万文件太慢）
+  $max = [datetime]'1601-01-01'
+  foreach ($f in [System.IO.Directory]::EnumerateFiles("$root\dist", '*', [System.IO.SearchOption]::AllDirectories)) {
+    try { $t = [System.IO.File]::GetLastWriteTime($f); if ($t -gt $max) { $max = $t } } catch {}
+  }
+  if ($max -gt $tarTime) { $stale = $true }
+  foreach ($f in @("$root\db\init.sql", "$PSScriptRoot\init-db.js")) {
+    if ((Test-Path $f) -and (Get-Item $f).LastWriteTime -gt $tarTime) { $stale = $true }
+  }
+  if (-not $stale) {
+    Write-Host "[prepare] backend.tar 未过期, 跳过暂存/打包（如需强制重建请删 dist-tauri 或加 -ForceStage）"
+    $sizeMB = [math]::Round((Get-ChildItem $stage -Recurse -File | Measure-Object Length -Sum).Sum / 1MB, 1)
+    Write-Host "[prepare] done: $stage (total $sizeMB MB)"
+    exit 0
+  }
+  Write-Host "[prepare] dist 内容有更新, 重新暂存并打包 backend.tar..."
+}
+
+if (Test-Path $stage) {
+  # 并发构建 / 杀软扫描可能瞬时占用文件, 重试 3 次再放弃
+  $removed = $false
+  foreach ($attempt in 1..3) {
+    try {
+      Remove-Item $stage -Recurse -Force -ErrorAction Stop
+      $removed = $true
+      break
+    } catch {
+      Write-Host "[prepare] dist-tauri removal attempt $attempt failed: $($_.Exception.Message)"
+      Start-Sleep -Seconds 2
+    }
+  }
+  if (-not $removed) { throw 'cannot remove stale dist-tauri (file locked by another process)' }
+}
 New-Item -ItemType Directory -Path "$stage" | Out-Null
 New-Item -ItemType Directory -Path "$stage\dist" | Out-Null
 

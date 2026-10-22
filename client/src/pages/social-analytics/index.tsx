@@ -42,19 +42,28 @@ interface KpiCardProps {
   icon: typeof Eye;
 }
 
-const KpiCard: React.FC<KpiCardProps> = ({ label, value, icon: Icon }) => (
-  <div className="rounded-none border-t-[3px] border-t-[#0033A0] bg-white shadow-md p-6">
-    <div className="mb-2 flex items-center gap-2">
-      <Icon className="size-4 text-[#0033A0]" />
-      <span className="text-[10px] font-black uppercase tracking-tight text-[#94A3B8]">
-        {label}
-      </span>
+const KpiCard: React.FC<KpiCardProps> = ({ label, value, icon: Icon }) => {
+  const fmt = formatCount(value);
+  const m = fmt.match(/^([\d,.]+)(.*)$/);
+  const num = m ? m[1] : fmt;
+  const unit = m?.[2] ?? '';
+  return (
+    <div className="rounded-none border-t-[3px] border-t-[#0033A0] bg-white shadow-md p-6">
+      <div className="mb-2 flex items-center gap-2">
+        <Icon className="size-4 text-[#0033A0]" />
+        <span className="text-[12px] font-black uppercase tracking-tight text-[#64748B]">
+          {label}
+        </span>
+      </div>
+      <p className="font-mono text-2xl font-bold text-[#1A1A1A]">
+        {num}
+        {unit && (
+          <span className="ml-0.5 text-sm font-bold text-[#94A3B8]">{unit}</span>
+        )}
+      </p>
     </div>
-    <p className="font-mono text-2xl font-bold text-[#1A1A1A]">
-      {formatCount(value)}
-    </p>
-  </div>
-);
+  );
+};
 
 const SocialAnalytics: React.FC = () => {
   const navigate = useNavigate();
@@ -198,10 +207,10 @@ const SocialAnalytics: React.FC = () => {
 
   const pillClass = (active: boolean): string =>
     cn(
-      'flex items-center gap-1.5 rounded-none border px-3 py-1.5 text-sm font-medium transition-colors',
+      'flex items-center gap-1.5 rounded-none border px-3 py-1.5 text-sm transition-colors',
       active
-        ? 'border-transparent bg-[#0033A0] text-white'
-        : 'border-[#E2E8F0] bg-white text-[#475569] hover:bg-slate-50',
+        ? 'border-[#0033A0] bg-[#EFF4FF] font-semibold text-[#0033A0]'
+        : 'border-[#E2E8F0] bg-white font-medium text-[#475569] hover:bg-slate-50',
     );
 
   return (
@@ -247,12 +256,6 @@ const SocialAnalytics: React.FC = () => {
               ))}
             </div>
             <div className="flex items-center gap-3">
-              {syncing && (
-                <span className="flex items-center gap-1.5 text-[12px] font-medium text-[#94A3B8]">
-                  <RefreshCw className="size-3.5 animate-spin" />
-                  后台同步中，界面保持可用
-                </span>
-              )}
               {data?.updatedAt && !syncing && (
                 <span className="text-[12px] font-medium text-[#94A3B8]">
                   上次同步：{new Date(data.updatedAt).toLocaleString('zh-CN')}
@@ -266,7 +269,7 @@ const SocialAnalytics: React.FC = () => {
                 disabled={syncing}
               >
                 <RefreshCw className={cn('size-4', syncing && 'animate-spin')} />
-                同步数据
+                {syncing ? '同步中…' : '同步数据'}
               </Button>
             </div>
           </div>
@@ -362,7 +365,7 @@ const SocialAnalytics: React.FC = () => {
                       ].map((h) => (
                         <th
                           key={h}
-                          className="px-4 py-3 text-[10px] font-black uppercase tracking-tight text-[#94A3B8]"
+                          className="px-4 py-3 text-[12px] font-black uppercase tracking-tight text-[#64748B]"
                         >
                           {h}
                         </th>
@@ -385,12 +388,14 @@ const SocialAnalytics: React.FC = () => {
                                 alt=""
                                 className="size-5 shrink-0 rounded-none"
                               />
-                              <span className="text-sm font-bold text-[#0033A0]">
-                                {acct.accountName}
-                              </span>
-                              <span className="text-[12px] font-medium text-[#94A3B8]">
-                                {meta.name}
-                              </span>
+                              <div className="min-w-0">
+                                <div className="truncate text-sm font-bold text-[#0033A0]">
+                                  {acct.accountName}
+                                </div>
+                                <div className="text-[10px] font-medium text-[#94A3B8]">
+                                  {meta.name}
+                                </div>
+                              </div>
                             </div>
                           </td>
                           <td className="px-4 py-3 font-mono text-left text-sm font-medium text-[#1A1A1A]">

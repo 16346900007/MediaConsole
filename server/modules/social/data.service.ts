@@ -282,9 +282,11 @@ export class DataService {
     acct: AccountRow,
     inputs: SocialPostInput[],
   ): Promise<void> {
+    const fetchedIds: string[] = [];
     for (const input of inputs) {
       const id = input.platformPostId;
       if (!id) continue;
+      fetchedIds.push(id);
       const values = {
         accountId: acct.id,
         platform: acct.platform,
@@ -322,6 +324,38 @@ export class DataService {
           },
         });
     }
+    // 清理平台已删除的作品：抓取成功（非空）时，删除本地不在本次抓取结果中的记录。
+    // 空集合视为抓取失败/未登录，跳过清理避免误删历史数据。
+    await this.deleteGonePosts(acct, fetchedIds);
+  }
+
+  /** 删除本地库中已不在平台作品列表里的记录（平台侧删除后同步自动清理） */
+  private async deleteGonePosts(acct: AccountRow, fetchedIds: string[]): Promise<void> {
+    if (fetchedIds.length === 0) return;
+    const fetched = new Set(fetchedIds);
+    const existing = await this.db
+      .select({ platformPostId: socialPosts.platformPostId })
+      .from(socialPosts)
+      .where(eq(socialPosts.accountId, acct.id));
+    const gone = existing
+      .map((r) => r.platformPostId)
+      .filter((id) => id && !fetched.has(id));
+    if (gone.length === 0) return;
+    // 分批删除（inArray 长列表拆 500 一批）
+    for (let i = 0; i < gone.length; i += 500) {
+      const batch = gone.slice(i, i + 500);
+      await this.db
+        .delete(socialPosts)
+        .where(
+          and(
+            eq(socialPosts.accountId, acct.id),
+            inArray(socialPosts.platformPostId, batch),
+          ),
+        );
+    }
+    this.logger.log(
+      `[data-sync] ${acct.platform}/${acct.accountName} 清理 ${gone.length} 条平台已删除作品`,
+    );
   }
 
   /* ------------------------------------------------------------------ */

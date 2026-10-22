@@ -72,3 +72,15 @@
 ### 通用间距取值
 
 内容不贴容器边缘；卡片内边距统一 `p-6`；并列元素间距用 `gap`；Section 间 `space-y-8`；父容器已给内边距时子容器不叠加。
+
+## 自动填表（fill-forms）
+
+- 机制：server/modules/social/publish/fill/（源自 MultiPost-Extension Apache-2.0）——Playwright headed（msedge）打开平台发布页 → page.evaluate 注入自包含 handler 填表，isAutoPublish=false 不点发布，窗口保持等人工确认。
+- 接口：POST api/social/publish/tasks/:id/fill-forms（body.platforms 缺省=全部目标）；前端入口：列表行「填表」按钮 + 编辑页「填表（打开浏览器）」按钮（存草稿后打开 FillFormDialog autoRun）。
+- 平台映射/注入 URL：publish/fill/platform-map.ts；handler 在 publish/fill/handlers/{video,dynamic}/（7 平台各 2 类，youtube 仅 video）。
+- 硬约束：注入函数必须自包含（page.evaluate 序列化），改动 handler 勿引入闭包/外部引用；媒体经 /api/social/files/* 跨域 fetch（该接口已加 CORS）。
+- 登录态复用 authDir storageState（同 executors.ts 自动发布）；文章类型不支持填表（video/image 支持）。
+- 窗口分组：fill-forms.service `groupTargetsByWindow`——顺序遍历目标，同平台第二个账号另开新窗口，窗口内跨平台用同一 context 的 newPage（同窗口 tab）；`mergeStorageState` 合并 cookies/localStorage（同域名多账号用多窗口避免 cookie 冲突）。
+- 人工发布闭环：每平台 page.on('close')（用户发布后关闭窗口）→ `PublishService.markTargetPublished(taskId, platform, accountId)` 置该 target=success 并重算发布单状态（全 success→published / 部分→partial / 无→draft）。server 主动回收旧窗口（closePrevious）会先置 browser._recycling=true，其 close 事件不视为人工发布。
+- 状态模型：任务级 draft/scheduled/publishing/published/partial/partial_failed/failed；前端筛选收敛为三档——草稿(draft,scheduled,publishing) / 部分发布(partial,partial_failed) / 已发布(published)，listTasks 支持 status 逗号分隔（inArray）。
+- 填表弹窗 fill-form-dialog.tsx：展示每平台状态列表（待填表/填表中/已填表/已发布），打开后每 4s 轮询 getPublishTask 刷新（用户关窗后 target 变 success 实时变绿）；已发布全部平台后显示「知道了」。

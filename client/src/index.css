@@ -22,59 +22,8 @@ button:disabled,
   cursor: not-allowed;
 }
 
-/* ===== 隐藏平台注入的「妙搭生成」悬浮角标（AppContainer Watermark） ===== */
+/* ===== 隐藏宿主注入的「AI 生成」悬浮角标（AppContainer Watermark） ===== */
 [data-custom-element='miaoda-watermark'],
 [data-custom-element='miaoda-watermark-mobile'] {
   display: none !important;
-}
-
-/* ===== 右上角卷角状态标签（账号卡片） ===== */
-.ribbon-badge {
-  position: absolute;
-  right: -6px;
-  top: -6px;
-  z-index: 1;
-  overflow: hidden;
-  width: 58px;
-  height: 58px;
-  text-align: right;
-}
-.ribbon-badge .ribbon-label {
-  --ribbon-color: #94a3b8;
-  position: absolute;
-  top: 14px;
-  right: -18px;
-  width: 78px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  color: #fff;
-  line-height: 18px;
-  transform: rotate(45deg);
-  background: var(--ribbon-color);
-  box-shadow: 0 3px 10px -5px rgba(0, 0, 0, 1);
-}
-.ribbon-badge .ribbon-label::before,
-.ribbon-badge .ribbon-label::after {
-  content: '';
-  position: absolute;
-  top: 100%;
-  width: 0;
-  height: 0;
-  border-top: 3px solid var(--ribbon-color);
-  border-bottom: 3px solid transparent;
-}
-.ribbon-badge .ribbon-label::before {
-  left: 0;
-  border-left: 3px solid var(--ribbon-color);
-  border-right: 3px solid transparent;
-}
-.ribbon-badge .ribbon-label::after {
-  right: 0;
-  border-right: 3px solid var(--ribbon-color);
-  border-left: 3px solid transparent;
 }

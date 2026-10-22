@@ -1,4 +1,4 @@
-import { Video, Image as ImageIcon, FileText } from 'lucide-react';
+import { Video, Image as ImageIcon } from 'lucide-react';
 import { PLATFORM_MAP, PUBLISH_TYPE_LABELS, PUBLISH_TYPE_PLATFORMS, type PublishType } from '@shared/platforms';
 import { PLATFORM_LOGOS } from '@/utils/platform-logos';
 
@@ -7,15 +7,17 @@ interface Props {
   onClose: () => void;
 }
 
-const TYPE_ICONS: Record<PublishType, typeof Video> = {
+const TYPE_ICONS: Partial<Record<PublishType, typeof Video>> = {
   video: Video,
   image: ImageIcon,
-  article: FileText,
 };
 
 /** 新建发布 → 选择发布类型弹窗（按支持矩阵过滤平台，不支持的平台不展示） */
 export default function PublishTypeDialog({ onSelect, onClose }: Props) {
-  const types = Object.keys(PUBLISH_TYPE_PLATFORMS) as PublishType[];
+  // 文章发布已下线：仅保留视频/图文
+  const types = (Object.keys(PUBLISH_TYPE_PLATFORMS) as PublishType[]).filter(
+    (t) => t !== 'article',
+  );
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div
@@ -40,7 +42,7 @@ export default function PublishTypeDialog({ onSelect, onClose }: Props) {
           </button>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           {types.map((type) => {
             const Icon = TYPE_ICONS[type];
             const platforms = PUBLISH_TYPE_PLATFORMS[type];

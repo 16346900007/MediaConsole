@@ -7,7 +7,7 @@ rem ============================================
 chcp 65001 >nul
 title Social Manager - Client
 
-set "APP=%~dp0src-tauri\target\debug\social-manager.exe"
+set "APP=%~dp0..\src-tauri\target\debug\social-manager.exe"
 
 if not exist "%APP%" (
     echo [ERROR] Debug client not found.

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, RefreshCw } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, ExternalLink, RefreshCw } from 'lucide-react';
 import { axiosForBackend } from '@lark-apaas/client-toolkit/utils/getAxiosForBackend';
 import type {
   DataOverviewResponse,
@@ -8,6 +8,7 @@ import type {
   SocialPost,
 } from '@shared/api.interface';
 import { PLATFORM_MAP } from '@shared/platforms';
+import { PLATFORM_LOGOS } from '@/utils/platform-logos';
 import { getDataOverview, getDataPosts, syncData } from '@client/src/api/social';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -124,8 +125,13 @@ const AccountPosts: React.FC = () => {
   const navigate = useNavigate();
   const [overview, setOverview] = useState<DataOverviewResponse | null>(null);
   const [posts, setPosts] = useState<SocialPost[] | null>(null);
+  /** 作品列表分页 */
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** 同步中（后台抓取可能 30s+，按钮显示进度并等待完成） */
+  const [syncing, setSyncing] = useState(false);
 
   const load = useCallback(async () => {
     if (!accountId) return;
@@ -154,22 +160,49 @@ const AccountPosts: React.FC = () => {
     [overview, accountId],
   );
 
+  const totalPages = useMemo(
+    () => (posts ? Math.max(1, Math.ceil(posts.length / PAGE_SIZE)) : 1),
+    [posts],
+  );
+  const pagePosts = useMemo(() => {
+    if (!posts) return undefined;
+    const start = (page - 1) * PAGE_SIZE;
+    return posts.slice(start, start + PAGE_SIZE);
+  }, [posts, page]);
+
+  // 数据变化后页码越界自动回退
+  useEffect(() => {
+    if (posts && page > totalPages) setPage(totalPages);
+  }, [posts, page, totalPages]);
+
   const columns = useMemo(() => {
     if (!account) return DEFAULT_COLUMNS;
     return EXTRA_COLUMNS[account.platform] ?? DEFAULT_COLUMNS;
   }, [account]);
 
   const handleSync = useCallback(async () => {
-    if (!accountId) return;
+    if (!accountId || syncing) return;
+    setSyncing(true);
     try {
       await syncData(accountId);
-      // 同步完成后刷新
-      await new Promise((r) => setTimeout(r, 8000));
+      // 后台抓取是异步任务，轮询等待该账号同步完成（最长 120s）后再刷新列表
+      const deadline = Date.now() + 120_000;
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 3000));
+        try {
+          const ov = await getDataOverview(accountId);
+          if (!ov.syncing) break;
+        } catch {
+          break;
+        }
+      }
       await load();
     } catch {
       /* 后台同步失败由下次加载兜底 */
+    } finally {
+      setSyncing(false);
     }
-  }, [accountId, load]);
+  }, [accountId, load, syncing]);
 
   if (!accountId) return null;
 
@@ -197,7 +230,19 @@ const AccountPosts: React.FC = () => {
       {/* 账号信息卡 */}
       <section className="rounded-none border-t-[3px] border-t-[#0033A0] bg-white shadow-md p-6">
         {loading ? (
-          <Skeleton className="h-[72px] w-full rounded-none" />
+          <div className="flex flex-wrap items-center gap-4">
+            <Skeleton className="size-12 rounded-none" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-5 w-40 rounded-none" />
+              <Skeleton className="h-4 w-64 rounded-none" />
+            </div>
+            <div className="flex items-center gap-6">
+              {[0, 1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-10 w-14 rounded-none" />
+              ))}
+            </div>
+            <Skeleton className="h-9 w-28 rounded-none" />
+          </div>
         ) : account ? (
           <div className="flex flex-wrap items-center gap-4">
             {account.avatar ? (
@@ -216,11 +261,20 @@ const AccountPosts: React.FC = () => {
               </span>
             )}
             <div className="min-w-0 flex-1">
-              <p className="text-base font-semibold text-[#1A1A1A]">
-                {account.accountName}
-              </p>
-              <p className="mt-0.5 text-[12px] font-medium text-[#94A3B8]">
-                {PLATFORM_MAP[account.platform].name} ·{' '}
+              <div className="flex items-center gap-2">
+                <p className="truncate text-base font-semibold text-[#1A1A1A]">
+                  {account.accountName}
+                </p>
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-sm bg-[#EFF4FF] px-2 py-0.5 text-[12px] font-bold text-[#0033A0]">
+                  <img
+                    src={PLATFORM_LOGOS[account.platform]}
+                    alt=""
+                    className="size-3.5 rounded-none object-contain"
+                  />
+                  {PLATFORM_MAP[account.platform].name}
+                </span>
+              </div>
+              <p className="mt-1 text-[12px] font-medium text-[#94A3B8]">
                 {formatCount(account.followersCount)} 粉丝 · {account.postCount}{' '}
                 作品
               </p>
@@ -236,9 +290,10 @@ const AccountPosts: React.FC = () => {
               variant="outline"
               className="rounded-none border-[#0033A0] text-[#0033A0] hover:bg-[#EFF4FF]"
               onClick={() => void handleSync()}
+              disabled={syncing}
             >
-              <RefreshCw className="size-4" />
-              同步该账号
+              <RefreshCw className={`size-4 ${syncing ? 'animate-spin' : ''}`} />
+              {syncing ? '同步中…' : '同步该账号'}
             </Button>
           </div>
         ) : (
@@ -257,7 +312,24 @@ const AccountPosts: React.FC = () => {
           </p>
         </div>
         {loading ? (
-          <Skeleton className="h-[300px] w-full rounded-none" />
+          <div>
+            <div className="flex gap-6 border-b border-[#E2E8F0] px-4 pb-3">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} className="h-3 w-14 rounded-none" />
+              ))}
+            </div>
+            <div className="divide-y divide-[#E2E8F0]">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex items-center gap-6 px-4 py-4">
+                  <Skeleton className="size-10 shrink-0 rounded-none" />
+                  <Skeleton className="h-4 w-1/3 rounded-none" />
+                  <Skeleton className="h-4 w-16 rounded-none" />
+                  <Skeleton className="h-4 w-16 rounded-none" />
+                  <Skeleton className="ml-auto h-4 w-24 rounded-none" />
+                </div>
+              ))}
+            </div>
+          </div>
         ) : error ? (
           <div className="flex flex-col items-start gap-3">
             <p className="text-[12px] font-medium text-[#EF4444]">{error}</p>
@@ -282,24 +354,24 @@ const AccountPosts: React.FC = () => {
             <table className="w-full border-collapse text-left">
               <thead>
                 <tr className="border-b border-[#E2E8F0]">
-                  <th className="px-4 py-3 text-[10px] font-black uppercase tracking-tight text-[#94A3B8]">
+                  <th className="px-4 py-3 text-[12px] font-black uppercase tracking-tight text-[#64748B]">
                     作品
                   </th>
                   {columns.map((key) => (
                     <th
                       key={key}
-                      className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-tight text-[#94A3B8]"
+                      className="px-4 py-3 text-right text-[12px] font-black uppercase tracking-tight text-[#64748B]"
                     >
                       {COLUMN_LABELS[key]}
                     </th>
                   ))}
-                  <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-tight text-[#94A3B8]">
+                  <th className="px-4 py-3 text-right text-[12px] font-black uppercase tracking-tight text-[#64748B]">
                     操作
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {posts.map((post) => (
+                {pagePosts?.map((post) => (
                   <tr
                     key={post.platformPostId}
                     className="border-b border-[#E2E8F0] transition-colors last:border-b-0 hover:bg-slate-50"
@@ -374,6 +446,53 @@ const AccountPosts: React.FC = () => {
             </table>
           </div>
         )}
+
+        {/* 作品列表分页（始终显示） */}
+        {posts && posts.length > 0 && (
+          <div className="mt-4 flex items-center justify-between border-t border-[#E2E8F0] pt-4">
+            <span className="text-[12px] font-medium text-[#94A3B8]">
+              共 {posts.length} 条 · 第 {page}/{totalPages} 页
+            </span>
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                className="size-8 rounded-none border-[#E2E8F0] p-0 text-[#475569] hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                aria-label="上一页"
+              >
+                <ChevronLeft className="size-4" />
+              </Button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+                <Button
+                  key={n}
+                  type="button"
+                  variant="outline"
+                  className={cn(
+                    'size-8 rounded-none border-[#E2E8F0] p-0 text-[12px] font-bold',
+                    n === page
+                      ? 'bg-[#0033A0] text-white hover:bg-[#00236E]'
+                      : 'text-[#475569] hover:bg-slate-100',
+                  )}
+                  onClick={() => setPage(n)}
+                >
+                  {n}
+                </Button>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                className="size-8 rounded-none border-[#E2E8F0] p-0 text-[#475569] hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                aria-label="下一页"
+              >
+                <ChevronRight className="size-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </section>
     </div>
   );
@@ -381,7 +500,7 @@ const AccountPosts: React.FC = () => {
 
 const Metric: React.FC<{ label: string; value: number }> = ({ label, value }) => (
   <div className="text-right">
-    <p className="mb-1 text-[10px] font-black uppercase tracking-tight text-[#94A3B8]">
+    <p className="mb-1 text-[12px] font-black uppercase tracking-tight text-[#64748B]">
       {label}
     </p>
     <p className="font-mono text-lg font-bold text-[#1A1A1A]">
